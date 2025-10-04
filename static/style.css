@@ -180,6 +180,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-shrink: 0;
 }
 
 .chat-header h2 {
@@ -223,6 +224,7 @@ body {
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0; /* Important for flex scrolling */
 }
 
 /* Users Sidebar */
@@ -233,6 +235,7 @@ body {
     padding: 1rem;
     overflow-y: auto;
     transition: transform 0.3s ease;
+    flex-shrink: 0;
 }
 
 .users-sidebar h3 {
@@ -288,6 +291,7 @@ body {
     display: flex;
     flex-direction: column;
     position: relative;
+    min-height: 0; /* Important for flex scrolling */
 }
 
 .messages-container {
@@ -299,31 +303,30 @@ body {
         radial-gradient(circle at 25px 25px, rgba(255,255,255,0.3) 2%, transparent 40%),
         radial-gradient(circle at 75px 75px, rgba(255,255,255,0.2) 2%, transparent 40%);
     background-size: 100px 100px;
-    /* Enable smooth scrolling on both mobile and desktop */
+    /* Enable smooth scrolling */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     overscroll-behavior: contain;
+    position: relative;
+    min-height: 0; /* Important for flex scrolling */
 }
 
-/* Enhanced scrolling for WebKit browsers */
+/* Simple scrollbar styling */
 .messages-container::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .messages-container::-webkit-scrollbar-track {
     background: transparent;
-    border-radius: 4px;
 }
 
 .messages-container::-webkit-scrollbar-thumb {
     background: var(--primary-color);
-    border-radius: 4px;
-    opacity: 0.5;
+    border-radius: 3px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
     background: var(--primary-dark);
-    opacity: 0.8;
 }
 
 .welcome-message {
@@ -346,9 +349,8 @@ body {
     position: relative;
     animation: messageAppear 0.3s ease-out;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    /* Prevent text selection on messages for better scrolling */
-    user-select: none;
-    -webkit-user-select: none;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 @keyframes messageAppear {
@@ -386,9 +388,6 @@ body {
 .message-text {
     word-wrap: break-word;
     line-height: 1.4;
-    /* Allow text selection only for message content */
-    user-select: text;
-    -webkit-user-select: text;
 }
 
 .message-time {
@@ -418,6 +417,7 @@ body {
     position: sticky;
     bottom: 0;
     backdrop-filter: blur(10px);
+    flex-shrink: 0;
 }
 
 .input-group {
@@ -473,6 +473,36 @@ body {
     transform: none;
 }
 
+/* Scroll to Bottom Button */
+.scroll-to-bottom {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    background: var(--primary-color);
+    color: var(--white);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    z-index: 90;
+    font-size: 1.2rem;
+}
+
+.scroll-to-bottom:hover {
+    background: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.scroll-to-bottom.show {
+    display: flex;
+}
+
 /* Mobile Styles */
 @media (max-width: 768px) {
     body {
@@ -526,7 +556,6 @@ body {
         padding: 0.75rem;
         overflow-x: auto;
         overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
     }
     
     .users-sidebar h3 {
@@ -539,7 +568,6 @@ body {
         gap: 0.5rem;
         overflow-x: auto;
         padding-bottom: 0.5rem;
-        -webkit-overflow-scrolling: touch;
     }
     
     #users-list li {
@@ -552,18 +580,12 @@ body {
     
     .messages-container {
         padding: 0.75rem;
-        /* Enhanced mobile scrolling */
-        scroll-behavior: smooth;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
     }
     
     .message {
         max-width: 90%;
         padding: 0.75rem;
         margin-bottom: 0.75rem;
-        /* Better touch targets */
-        min-height: 44px;
     }
     
     .message-input-container {
@@ -582,15 +604,19 @@ body {
     
     #message-input {
         width: 100%;
-        /* Better mobile input */
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px;
     }
     
     #send-btn {
         width: 100%;
         padding: 1rem;
-        /* Better touch target */
-        min-height: 44px;
+    }
+    
+    .scroll-to-bottom {
+        bottom: 70px;
+        right: 15px;
+        width: 35px;
+        height: 35px;
     }
 }
 
@@ -622,43 +648,6 @@ body {
         max-width: 95%;
         font-size: 0.9rem;
     }
-}
-
-/* Scroll to Bottom Button */
-.scroll-to-bottom {
-    position: absolute;
-    bottom: 80px;
-    right: 20px;
-    background: var(--primary-color);
-    color: var(--white);
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    cursor: pointer;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
-    z-index: 90;
-}
-
-.scroll-to-bottom:hover {
-    background: var(--primary-dark);
-    transform: scale(1.1);
-}
-
-.scroll-to-bottom.show {
-    display: flex;
-}
-
-/* Enhanced focus styles for accessibility */
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
 }
 
 /* Prevent blue highlight on mobile tap */

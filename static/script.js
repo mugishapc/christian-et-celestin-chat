@@ -9,7 +9,6 @@ class ChatApp {
         this.scrollThreshold = 100;
         
         this.initializeEventListeners();
-        this.initializeScrollHandler();
     }
 
     initializeEventListeners() {
@@ -39,7 +38,8 @@ class ChatApp {
 
     initializeScrollHandler() {
         const messagesContainer = document.getElementById('messages-container');
-        
+        if (!messagesContainer) return;
+
         // Create scroll to bottom button
         this.createScrollToBottomButton();
         
@@ -47,14 +47,15 @@ class ChatApp {
         messagesContainer.addEventListener('scroll', () => {
             this.handleScroll();
         });
-        
-        // Enable smooth scrolling for wheel events
-        messagesContainer.addEventListener('wheel', (e) => {
-            // Allow natural scrolling behavior
-        }, { passive: true });
     }
 
     createScrollToBottomButton() {
+        // Remove existing button if any
+        const existingBtn = document.querySelector('.scroll-to-bottom');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
+
         const button = document.createElement('button');
         button.className = 'scroll-to-bottom';
         button.innerHTML = '↓';
@@ -63,12 +64,17 @@ class ChatApp {
             this.scrollToBottom(true);
         });
         
-        document.querySelector('.chat-area').appendChild(button);
-        this.scrollToBottomBtn = button;
+        const chatArea = document.querySelector('.chat-area');
+        if (chatArea) {
+            chatArea.appendChild(button);
+            this.scrollToBottomBtn = button;
+        }
     }
 
     handleScroll() {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
         const scrollTop = messagesContainer.scrollTop;
         const scrollHeight = messagesContainer.scrollHeight;
         const clientHeight = messagesContainer.clientHeight;
@@ -88,6 +94,8 @@ class ChatApp {
 
     scrollToBottom(instant = false) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
         if (instant) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         } else {
@@ -250,12 +258,15 @@ class ChatApp {
         // Initialize scroll handler for the new messages container
         setTimeout(() => {
             this.initializeScrollHandler();
+            this.scrollToBottom(true);
         }, 100);
     }
 
     populateUsersList(users) {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
+        
+        if (!usersList || !receiverSelect) return;
         
         usersList.innerHTML = '';
         receiverSelect.innerHTML = '<option value="">Select a user to chat with</option>';
@@ -283,6 +294,8 @@ class ChatApp {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
+        if (!usersList || !receiverSelect) return;
+        
         // Add to sidebar
         const li = document.createElement('li');
         li.textContent = username;
@@ -299,6 +312,8 @@ class ChatApp {
     removeUserFromList(username) {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
+        
+        if (!usersList || !receiverSelect) return;
         
         // Remove from sidebar
         const listItems = usersList.getElementsByTagName('li');
@@ -329,15 +344,20 @@ class ChatApp {
         this.currentConversation = username ? [this.currentUser, username].sort().join('_') : null;
         
         // Update UI
-        document.getElementById('receiver-select').value = username;
+        const receiverSelect = document.getElementById('receiver-select');
+        if (receiverSelect) {
+            receiverSelect.value = username;
+        }
         
         // Highlight selected user in sidebar
         const usersList = document.getElementById('users-list');
-        const listItems = usersList.getElementsByTagName('li');
-        for (let i = 0; i < listItems.length; i++) {
-            listItems[i].classList.remove('active');
-            if (listItems[i].textContent === username) {
-                listItems[i].classList.add('active');
+        if (usersList) {
+            const listItems = usersList.getElementsByTagName('li');
+            for (let i = 0; i < listItems.length; i++) {
+                listItems[i].classList.remove('active');
+                if (listItems[i].textContent === username) {
+                    listItems[i].classList.add('active');
+                }
             }
         }
         
@@ -345,14 +365,14 @@ class ChatApp {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
-        if (username) {
+        if (username && messageInput && sendBtn) {
             messageInput.disabled = false;
             sendBtn.disabled = false;
             messageInput.focus();
             
             // Load conversation history for these two users only
             this.loadConversationHistory(username);
-        } else {
+        } else if (messageInput && sendBtn) {
             messageInput.disabled = true;
             sendBtn.disabled = true;
             this.showWelcomeMessage();
@@ -376,6 +396,8 @@ class ChatApp {
 
     displayConversationHistory(messages) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+        
         messagesContainer.innerHTML = '';
         
         if (messages.length === 0) {
@@ -415,6 +437,7 @@ class ChatApp {
 
     displayMessage(message) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
         
         // Hide welcome message if it's visible
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
@@ -442,6 +465,8 @@ class ChatApp {
 
     showWelcomeMessage(customMessage = null) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+        
         messagesContainer.innerHTML = '';
         
         const welcomeMessage = document.createElement('div');
@@ -464,6 +489,7 @@ class ChatApp {
 
     showSystemMessage(text) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
         
         const systemMessage = document.createElement('div');
         systemMessage.className = 'message system-message';
@@ -523,16 +549,18 @@ class ChatApp {
         const typingIndicator = document.getElementById('typing-indicator');
         const typingUser = document.getElementById('typing-user');
         
-        if (isTyping && sender === this.selectedReceiver) {
-            typingUser.textContent = sender;
-            typingIndicator.style.display = 'block';
-            
-            // Auto-scroll to bottom when someone is typing
-            if (this.isAtBottom) {
-                this.scrollToBottom();
+        if (typingIndicator && typingUser) {
+            if (isTyping && sender === this.selectedReceiver) {
+                typingUser.textContent = sender;
+                typingIndicator.style.display = 'block';
+                
+                // Auto-scroll to bottom when someone is typing
+                if (this.isAtBottom) {
+                    this.scrollToBottom();
+                }
+            } else {
+                typingIndicator.style.display = 'none';
             }
-        } else {
-            typingIndicator.style.display = 'none';
         }
     }
 
@@ -562,10 +590,4 @@ class ChatApp {
 // Initialize the chat app when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     new ChatApp();
-    
-    // Prevent zoom on mobile input focus
-    document.addEventListener('touchstart', function() {}, {passive: true});
-    
-    // Improve mobile scrolling
-    document.addEventListener('touchmove', function() {}, {passive: true});
 });
