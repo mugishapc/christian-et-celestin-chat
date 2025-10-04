@@ -263,9 +263,10 @@ def save_message_to_db(sender, receiver, message_text):
 def handle_get_conversation(data):
     user1 = data['user1']
     user2 = data['user2']
+    limit = data.get('limit', 50)
     
-    # Get messages from database
-    conversation_messages = get_conversation_from_db(user1, user2)
+    # Get latest messages from database
+    conversation_messages = get_conversation_from_db(user1, user2, limit=limit)
     
     emit('conversation_history', {
         'user1': user1,
@@ -273,7 +274,23 @@ def handle_get_conversation(data):
         'messages': conversation_messages
     })
 
-def get_conversation_from_db(user1, user2):
+@socketio.on('load_older_messages')
+def handle_load_older_messages(data):
+    user1 = data['user1']
+    user2 = data['user2']
+    offset = data.get('offset', 0)
+    limit = data.get('limit', 20)
+    
+    # Get older messages from database
+    older_messages = get_older_messages_from_db(user1, user2, offset, limit)
+    has_more = len(older_messages) == limit
+    
+    emit('older_messages_loaded', {
+        'messages': older_messages,
+        'has_more': has_more
+    })
+
+def get_conversation_from_db(user1, user2, limit=50):
     """Get conversation between two users from database"""
     conn = get_db_connection()
     if conn:
@@ -283,13 +300,14 @@ def get_conversation_from_db(user1, user2):
                     SELECT id, sender, receiver, message_text as text, timestamp
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
-                    ORDER BY timestamp ASC
-                """, (user1, user2, user2, user1))
+                    ORDER BY timestamp DESC
+                    LIMIT %s
+                """, (user1, user2, user2, user1, limit))
                 
                 messages = cur.fetchall()
-                # Convert to list of dictionaries
+                # Convert to list of dictionaries and reverse to get chronological order
                 result = []
-                for msg in messages:
+                for msg in reversed(messages):
                     result.append({
                         'id': msg['id'],
                         'sender': msg['sender'],
@@ -300,6 +318,39 @@ def get_conversation_from_db(user1, user2):
                 return result
         except Exception as e:
             logger.error(f"Error fetching conversation: {e}")
+            return []
+        finally:
+            conn.close()
+    return []
+
+def get_older_messages_from_db(user1, user2, offset, limit=20):
+    """Get older messages for infinite scrolling"""
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, sender, receiver, message_text as text, timestamp
+                    FROM messages 
+                    WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
+                    ORDER BY timestamp DESC
+                    LIMIT %s OFFSET %s
+                """, (user1, user2, user2, user1, limit, offset))
+                
+                messages = cur.fetchall()
+                # Convert to list of dictionaries and reverse to get chronological order
+                result = []
+                for msg in reversed(messages):
+                    result.append({
+                        'id': msg['id'],
+                        'sender': msg['sender'],
+                        'receiver': msg['receiver'],
+                        'text': msg['text'],
+                        'timestamp': msg['timestamp'].isoformat()
+                    })
+                return result
+        except Exception as e:
+            logger.error(f"Error fetching older messages: {e}")
             return []
         finally:
             conn.close()
@@ -322,4 +373,5 @@ if __name__ == '__main__':
     print("🚀 Starting Christian Et Celestin Chat Server...")
     print("📍 Access at: http://localhost:5000")
     print("🗄️  Database: PostgreSQL with Neon")
+    print("📜 Infinite scrolling: ENABLED - Users can scroll up to see old messages")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
