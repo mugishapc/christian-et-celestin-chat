@@ -21,12 +21,13 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile */
+    height: 100dvh;
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 0;
     margin: 0;
+    overflow: hidden;
 }
 
 .screen {
@@ -41,6 +42,39 @@ body {
     align-items: center;
 }
 
+/* Loading Animation */
+.loading-container {
+    background: var(--white);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    margin: 1rem;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--background-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: var(--text-color);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
 /* Login Screen */
 .login-container {
     background: var(--white);
@@ -51,6 +85,11 @@ body {
     width: 90%;
     max-width: 400px;
     margin: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.login-container:hover {
+    transform: translateY(-5px);
 }
 
 .login-container h1 {
@@ -92,6 +131,8 @@ body {
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
 }
 
 .login-form button:hover {
@@ -102,6 +143,12 @@ body {
 
 .login-form button:active {
     transform: translateY(0);
+}
+
+.login-form button:disabled {
+    background: var(--text-light);
+    cursor: not-allowed;
+    transform: none;
 }
 
 .error-message {
@@ -212,6 +259,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #users-list li::before {
@@ -250,6 +299,31 @@ body {
         radial-gradient(circle at 25px 25px, rgba(255,255,255,0.3) 2%, transparent 40%),
         radial-gradient(circle at 75px 75px, rgba(255,255,255,0.2) 2%, transparent 40%);
     background-size: 100px 100px;
+    /* Enable smooth scrolling on both mobile and desktop */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+}
+
+/* Enhanced scrolling for WebKit browsers */
+.messages-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+    opacity: 0.5;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+    opacity: 0.8;
 }
 
 .welcome-message {
@@ -272,6 +346,9 @@ body {
     position: relative;
     animation: messageAppear 0.3s ease-out;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    /* Prevent text selection on messages for better scrolling */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 @keyframes messageAppear {
@@ -309,6 +386,9 @@ body {
 .message-text {
     word-wrap: break-word;
     line-height: 1.4;
+    /* Allow text selection only for message content */
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .message-time {
@@ -398,12 +478,18 @@ body {
     body {
         padding: 0;
         height: 100dvh;
+        touch-action: pan-x pan-y;
     }
     
     .login-container {
         margin: 1rem;
         padding: 1.5rem;
         border-radius: 10px;
+    }
+    
+    .loading-container {
+        margin: 1rem;
+        padding: 1.5rem;
     }
     
     .chat-container {
@@ -440,6 +526,7 @@ body {
         padding: 0.75rem;
         overflow-x: auto;
         overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
     }
     
     .users-sidebar h3 {
@@ -452,6 +539,7 @@ body {
         gap: 0.5rem;
         overflow-x: auto;
         padding-bottom: 0.5rem;
+        -webkit-overflow-scrolling: touch;
     }
     
     #users-list li {
@@ -464,12 +552,18 @@ body {
     
     .messages-container {
         padding: 0.75rem;
+        /* Enhanced mobile scrolling */
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
     
     .message {
         max-width: 90%;
         padding: 0.75rem;
         margin-bottom: 0.75rem;
+        /* Better touch targets */
+        min-height: 44px;
     }
     
     .message-input-container {
@@ -488,17 +582,25 @@ body {
     
     #message-input {
         width: 100%;
+        /* Better mobile input */
+        font-size: 16px; /* Prevents zoom on iOS */
     }
     
     #send-btn {
         width: 100%;
         padding: 1rem;
+        /* Better touch target */
+        min-height: 44px;
     }
 }
 
 @media (max-width: 480px) {
     .login-container h1 {
         font-size: 1.5rem;
+    }
+    
+    .loading-text {
+        font-size: 1rem;
     }
     
     .login-form input,
@@ -522,24 +624,44 @@ body {
     }
 }
 
-/* Scrollbar Styling */
-.messages-container::-webkit-scrollbar,
-.users-sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.messages-container::-webkit-scrollbar-track,
-.users-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.messages-container::-webkit-scrollbar-thumb,
-.users-sidebar::-webkit-scrollbar-thumb {
+/* Scroll to Bottom Button */
+.scroll-to-bottom {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
     background: var(--primary-color);
-    border-radius: 3px;
+    color: var(--white);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    z-index: 90;
 }
 
-.messages-container::-webkit-scrollbar-thumb:hover,
-.users-sidebar::-webkit-scrollbar-thumb:hover {
+.scroll-to-bottom:hover {
     background: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.scroll-to-bottom.show {
+    display: flex;
+}
+
+/* Enhanced focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Prevent blue highlight on mobile tap */
+* {
+    -webkit-tap-highlight-color: transparent;
 }

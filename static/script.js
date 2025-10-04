@@ -5,8 +5,11 @@ class ChatApp {
         this.selectedReceiver = null;
         this.typingTimer = null;
         this.currentConversation = null;
+        this.isAtBottom = true;
+        this.scrollThreshold = 100;
         
         this.initializeEventListeners();
+        this.initializeScrollHandler();
     }
 
     initializeEventListeners() {
@@ -34,8 +37,76 @@ class ChatApp {
         });
     }
 
+    initializeScrollHandler() {
+        const messagesContainer = document.getElementById('messages-container');
+        
+        // Create scroll to bottom button
+        this.createScrollToBottomButton();
+        
+        // Track scroll position
+        messagesContainer.addEventListener('scroll', () => {
+            this.handleScroll();
+        });
+        
+        // Enable smooth scrolling for wheel events
+        messagesContainer.addEventListener('wheel', (e) => {
+            // Allow natural scrolling behavior
+        }, { passive: true });
+    }
+
+    createScrollToBottomButton() {
+        const button = document.createElement('button');
+        button.className = 'scroll-to-bottom';
+        button.innerHTML = '↓';
+        button.title = 'Scroll to bottom';
+        button.addEventListener('click', () => {
+            this.scrollToBottom(true);
+        });
+        
+        document.querySelector('.chat-area').appendChild(button);
+        this.scrollToBottomBtn = button;
+    }
+
+    handleScroll() {
+        const messagesContainer = document.getElementById('messages-container');
+        const scrollTop = messagesContainer.scrollTop;
+        const scrollHeight = messagesContainer.scrollHeight;
+        const clientHeight = messagesContainer.clientHeight;
+        
+        // Check if user is at the bottom
+        this.isAtBottom = (scrollHeight - scrollTop - clientHeight) <= this.scrollThreshold;
+        
+        // Show/hide scroll to bottom button
+        if (this.scrollToBottomBtn) {
+            if (this.isAtBottom) {
+                this.scrollToBottomBtn.classList.remove('show');
+            } else {
+                this.scrollToBottomBtn.classList.add('show');
+            }
+        }
+    }
+
+    scrollToBottom(instant = false) {
+        const messagesContainer = document.getElementById('messages-container');
+        if (instant) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+        this.isAtBottom = true;
+        
+        // Hide scroll to bottom button
+        if (this.scrollToBottomBtn) {
+            this.scrollToBottomBtn.classList.remove('show');
+        }
+    }
+
     login() {
         const usernameInput = document.getElementById('username-input');
+        const loginBtn = document.getElementById('login-btn');
         const username = usernameInput.value.trim();
 
         if (!username) {
@@ -48,7 +119,27 @@ class ChatApp {
             return;
         }
 
-        this.connectToSocket(username);
+        // Disable login button and show loading state
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Joining...';
+        this.showLoadingScreen();
+
+        // Connect after a small delay to show loading animation
+        setTimeout(() => {
+            this.connectToSocket(username);
+        }, 1000);
+    }
+
+    showLoadingScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        const loadingHTML = `
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+            </div>
+        `;
+        
+        loginScreen.innerHTML = loadingHTML;
     }
 
     connectToSocket(username) {
@@ -70,6 +161,7 @@ class ChatApp {
 
         this.socket.on('login_failed', (data) => {
             this.showLoginError(data.message);
+            this.hideLoadingScreen();
         });
 
         this.socket.on('user_joined', (data) => {
@@ -86,6 +178,11 @@ class ChatApp {
             // Only display if message is for current conversation
             if (this.isMessageForCurrentConversation(data)) {
                 this.displayMessage(data);
+                
+                // Auto-scroll to bottom if user is near bottom
+                if (this.isAtBottom) {
+                    setTimeout(() => this.scrollToBottom(), 100);
+                }
             }
         });
 
@@ -93,6 +190,9 @@ class ChatApp {
             if (data.user1 === this.currentUser && data.user2 === this.selectedReceiver ||
                 data.user2 === this.currentUser && data.user1 === this.selectedReceiver) {
                 this.displayConversationHistory(data.messages);
+                
+                // Scroll to bottom after loading history
+                setTimeout(() => this.scrollToBottom(true), 200);
             }
         });
 
@@ -101,12 +201,41 @@ class ChatApp {
         });
     }
 
+    hideLoadingScreen() {
+        // Reset login screen
+        const loginScreen = document.getElementById('login-screen');
+        loginScreen.innerHTML = `
+            <div class="login-container">
+                <h1>Christian Et Celestin Chat</h1>
+                <div class="login-form">
+                    <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
+                    <button id="login-btn">Join Chat</button>
+                    <div id="login-error" class="error-message"></div>
+                </div>
+            </div>
+        `;
+        
+        // Re-initialize event listeners for the new elements
+        document.getElementById('login-btn').addEventListener('click', () => this.login());
+        document.getElementById('username-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.login();
+        });
+        
+        // Focus on input
+        document.getElementById('username-input').focus();
+    }
+
     showLoginError(message) {
-        const errorElement = document.getElementById('login-error');
-        errorElement.textContent = message;
+        // This will be called after we reset the login screen
         setTimeout(() => {
-            errorElement.textContent = '';
-        }, 3000);
+            const errorElement = document.getElementById('login-error');
+            if (errorElement) {
+                errorElement.textContent = message;
+                setTimeout(() => {
+                    errorElement.textContent = '';
+                }, 3000);
+            }
+        }, 100);
     }
 
     showChatScreen(users) {
@@ -117,6 +246,11 @@ class ChatApp {
         
         this.populateUsersList(users);
         this.showWelcomeMessage();
+        
+        // Initialize scroll handler for the new messages container
+        setTimeout(() => {
+            this.initializeScrollHandler();
+        }, 100);
     }
 
     populateUsersList(users) {
@@ -226,6 +360,9 @@ class ChatApp {
         
         // Clear typing indicator
         this.showTypingIndicator('', false);
+        
+        // Scroll to bottom when selecting a user
+        setTimeout(() => this.scrollToBottom(true), 200);
     }
 
     loadConversationHistory(otherUser) {
@@ -271,6 +408,9 @@ class ChatApp {
         // Clear input and stop typing indicator
         messageInput.value = '';
         this.stopTyping();
+        
+        // Focus back on input
+        messageInput.focus();
     }
 
     displayMessage(message) {
@@ -298,7 +438,6 @@ class ChatApp {
         `;
         
         messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     showWelcomeMessage(customMessage = null) {
@@ -341,7 +480,7 @@ class ChatApp {
         systemMessage.textContent = text;
         
         messagesContainer.appendChild(systemMessage);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        this.scrollToBottom();
     }
 
     handleTyping() {
@@ -387,6 +526,11 @@ class ChatApp {
         if (isTyping && sender === this.selectedReceiver) {
             typingUser.textContent = sender;
             typingIndicator.style.display = 'block';
+            
+            // Auto-scroll to bottom when someone is typing
+            if (this.isAtBottom) {
+                this.scrollToBottom();
+            }
         } else {
             typingIndicator.style.display = 'none';
         }
@@ -403,8 +547,9 @@ class ChatApp {
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
-        document.getElementById('username-input').value = '';
-        document.getElementById('username-input').focus();
+        
+        // Reset login screen
+        this.hideLoadingScreen();
     }
 
     escapeHtml(text) {
@@ -420,4 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Prevent zoom on mobile input focus
     document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Improve mobile scrolling
+    document.addEventListener('touchmove', function() {}, {passive: true});
 });
