@@ -4,9 +4,6 @@ class ChatApp {
         this.currentUser = null;
         this.selectedReceiver = null;
         this.typingTimer = null;
-        this.currentConversation = null;
-        this.isAtBottom = true;
-        this.scrollThreshold = 100;
         
         this.initializeEventListeners();
     }
@@ -34,82 +31,6 @@ class ChatApp {
         document.getElementById('receiver-select').addEventListener('change', (e) => {
             this.selectReceiver(e.target.value);
         });
-    }
-
-    initializeScrollHandler() {
-        const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-
-        // Create scroll to bottom button
-        this.createScrollToBottomButton();
-        
-        // Track scroll position
-        messagesContainer.addEventListener('scroll', () => {
-            this.handleScroll();
-        });
-    }
-
-    createScrollToBottomButton() {
-        // Remove existing button if any
-        const existingBtn = document.querySelector('.scroll-to-bottom');
-        if (existingBtn) {
-            existingBtn.remove();
-        }
-
-        const button = document.createElement('button');
-        button.className = 'scroll-to-bottom';
-        button.innerHTML = '↓';
-        button.title = 'Scroll to bottom';
-        button.addEventListener('click', () => {
-            this.scrollToBottom(true);
-        });
-        
-        const chatArea = document.querySelector('.chat-area');
-        if (chatArea) {
-            chatArea.appendChild(button);
-            this.scrollToBottomBtn = button;
-        }
-    }
-
-    handleScroll() {
-        const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-
-        const scrollTop = messagesContainer.scrollTop;
-        const scrollHeight = messagesContainer.scrollHeight;
-        const clientHeight = messagesContainer.clientHeight;
-        
-        // Check if user is at the bottom
-        this.isAtBottom = (scrollHeight - scrollTop - clientHeight) <= this.scrollThreshold;
-        
-        // Show/hide scroll to bottom button
-        if (this.scrollToBottomBtn) {
-            if (this.isAtBottom) {
-                this.scrollToBottomBtn.classList.remove('show');
-            } else {
-                this.scrollToBottomBtn.classList.add('show');
-            }
-        }
-    }
-
-    scrollToBottom(instant = false) {
-        const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-
-        if (instant) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        } else {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
-        this.isAtBottom = true;
-        
-        // Hide scroll to bottom button
-        if (this.scrollToBottomBtn) {
-            this.scrollToBottomBtn.classList.remove('show');
-        }
     }
 
     login() {
@@ -158,10 +79,6 @@ class ChatApp {
             this.socket.emit('login', { username });
         });
 
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
-
         this.socket.on('login_success', (data) => {
             this.currentUser = data.username;
             this.showChatScreen(data.users);
@@ -183,14 +100,9 @@ class ChatApp {
         });
 
         this.socket.on('new_message', (data) => {
-            // Only display if message is for current conversation
             if (this.isMessageForCurrentConversation(data)) {
                 this.displayMessage(data);
-                
-                // Auto-scroll to bottom if user is near bottom
-                if (this.isAtBottom) {
-                    setTimeout(() => this.scrollToBottom(), 100);
-                }
+                this.scrollToBottom();
             }
         });
 
@@ -198,9 +110,7 @@ class ChatApp {
             if (data.user1 === this.currentUser && data.user2 === this.selectedReceiver ||
                 data.user2 === this.currentUser && data.user1 === this.selectedReceiver) {
                 this.displayConversationHistory(data.messages);
-                
-                // Scroll to bottom after loading history
-                setTimeout(() => this.scrollToBottom(true), 200);
+                this.scrollToBottom();
             }
         });
 
@@ -210,7 +120,6 @@ class ChatApp {
     }
 
     hideLoadingScreen() {
-        // Reset login screen
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
@@ -223,25 +132,19 @@ class ChatApp {
             </div>
         `;
         
-        // Re-initialize event listeners for the new elements
         document.getElementById('login-btn').addEventListener('click', () => this.login());
         document.getElementById('username-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
         });
         
-        // Focus on input
         document.getElementById('username-input').focus();
     }
 
     showLoginError(message) {
-        // This will be called after we reset the login screen
         setTimeout(() => {
             const errorElement = document.getElementById('login-error');
             if (errorElement) {
                 errorElement.textContent = message;
-                setTimeout(() => {
-                    errorElement.textContent = '';
-                }, 3000);
             }
         }, 100);
     }
@@ -254,32 +157,22 @@ class ChatApp {
         
         this.populateUsersList(users);
         this.showWelcomeMessage();
-        
-        // Initialize scroll handler for the new messages container
-        setTimeout(() => {
-            this.initializeScrollHandler();
-            this.scrollToBottom(true);
-        }, 100);
     }
 
     populateUsersList(users) {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        if (!usersList || !receiverSelect) return;
-        
         usersList.innerHTML = '';
         receiverSelect.innerHTML = '<option value="">Select a user to chat with</option>';
         
         users.forEach(user => {
             if (user !== this.currentUser) {
-                // Add to sidebar
                 const li = document.createElement('li');
                 li.textContent = user;
                 li.addEventListener('click', () => this.selectReceiver(user));
                 usersList.appendChild(li);
                 
-                // Add to dropdown
                 const option = document.createElement('option');
                 option.value = user;
                 option.textContent = user;
@@ -294,15 +187,11 @@ class ChatApp {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        if (!usersList || !receiverSelect) return;
-        
-        // Add to sidebar
         const li = document.createElement('li');
         li.textContent = username;
         li.addEventListener('click', () => this.selectReceiver(username));
         usersList.appendChild(li);
         
-        // Add to dropdown
         const option = document.createElement('option');
         option.value = username;
         option.textContent = username;
@@ -313,9 +202,6 @@ class ChatApp {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        if (!usersList || !receiverSelect) return;
-        
-        // Remove from sidebar
         const listItems = usersList.getElementsByTagName('li');
         for (let i = 0; i < listItems.length; i++) {
             if (listItems[i].textContent === username) {
@@ -324,7 +210,6 @@ class ChatApp {
             }
         }
         
-        // Remove from dropdown
         const options = receiverSelect.getElementsByTagName('option');
         for (let i = 0; i < options.length; i++) {
             if (options[i].value === username) {
@@ -333,7 +218,6 @@ class ChatApp {
             }
         }
         
-        // If the removed user was selected, clear selection
         if (this.selectedReceiver === username) {
             this.selectReceiver('');
         }
@@ -341,48 +225,34 @@ class ChatApp {
 
     selectReceiver(username) {
         this.selectedReceiver = username;
-        this.currentConversation = username ? [this.currentUser, username].sort().join('_') : null;
         
-        // Update UI
-        const receiverSelect = document.getElementById('receiver-select');
-        if (receiverSelect) {
-            receiverSelect.value = username;
-        }
+        document.getElementById('receiver-select').value = username;
         
-        // Highlight selected user in sidebar
         const usersList = document.getElementById('users-list');
-        if (usersList) {
-            const listItems = usersList.getElementsByTagName('li');
-            for (let i = 0; i < listItems.length; i++) {
-                listItems[i].classList.remove('active');
-                if (listItems[i].textContent === username) {
-                    listItems[i].classList.add('active');
-                }
+        const listItems = usersList.getElementsByTagName('li');
+        for (let i = 0; i < listItems.length; i++) {
+            listItems[i].classList.remove('active');
+            if (listItems[i].textContent === username) {
+                listItems[i].classList.add('active');
             }
         }
         
-        // Enable/disable message input
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
-        if (username && messageInput && sendBtn) {
+        if (username) {
             messageInput.disabled = false;
             sendBtn.disabled = false;
             messageInput.focus();
             
-            // Load conversation history for these two users only
             this.loadConversationHistory(username);
-        } else if (messageInput && sendBtn) {
+        } else {
             messageInput.disabled = true;
             sendBtn.disabled = true;
             this.showWelcomeMessage();
         }
         
-        // Clear typing indicator
         this.showTypingIndicator('', false);
-        
-        // Scroll to bottom when selecting a user
-        setTimeout(() => this.scrollToBottom(true), 200);
     }
 
     loadConversationHistory(otherUser) {
@@ -396,8 +266,6 @@ class ChatApp {
 
     displayConversationHistory(messages) {
         const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-        
         messagesContainer.innerHTML = '';
         
         if (messages.length === 0) {
@@ -410,7 +278,6 @@ class ChatApp {
 
     isMessageForCurrentConversation(message) {
         if (!this.selectedReceiver) return false;
-        
         return (message.sender === this.currentUser && message.receiver === this.selectedReceiver) ||
                (message.sender === this.selectedReceiver && message.receiver === this.currentUser);
     }
@@ -427,19 +294,14 @@ class ChatApp {
             message: message
         });
         
-        // Clear input and stop typing indicator
         messageInput.value = '';
         this.stopTyping();
-        
-        // Focus back on input
         messageInput.focus();
     }
 
     displayMessage(message) {
         const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
         
-        // Hide welcome message if it's visible
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.style.display = 'none';
@@ -450,8 +312,7 @@ class ChatApp {
         
         const time = new Date(message.timestamp).toLocaleTimeString([], { 
             hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
+            minute: '2-digit'
         });
         
         messageElement.innerHTML = `
@@ -463,10 +324,15 @@ class ChatApp {
         messagesContainer.appendChild(messageElement);
     }
 
+    scrollToBottom() {
+        const messagesContainer = document.getElementById('messages-container');
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+
     showWelcomeMessage(customMessage = null) {
         const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-        
         messagesContainer.innerHTML = '';
         
         const welcomeMessage = document.createElement('div');
@@ -485,11 +351,11 @@ class ChatApp {
         }
         
         messagesContainer.appendChild(welcomeMessage);
+        this.scrollToBottom();
     }
 
     showSystemMessage(text) {
         const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
         
         const systemMessage = document.createElement('div');
         systemMessage.className = 'message system-message';
@@ -512,19 +378,16 @@ class ChatApp {
     handleTyping() {
         if (!this.selectedReceiver) return;
         
-        // Start typing indicator
         this.socket.emit('typing', {
             sender: this.currentUser,
             receiver: this.selectedReceiver,
             is_typing: true
         });
         
-        // Clear previous timer
         if (this.typingTimer) {
             clearTimeout(this.typingTimer);
         }
         
-        // Set timer to stop typing indicator
         this.typingTimer = setTimeout(() => {
             this.stopTyping();
         }, 1000);
@@ -549,18 +412,11 @@ class ChatApp {
         const typingIndicator = document.getElementById('typing-indicator');
         const typingUser = document.getElementById('typing-user');
         
-        if (typingIndicator && typingUser) {
-            if (isTyping && sender === this.selectedReceiver) {
-                typingUser.textContent = sender;
-                typingIndicator.style.display = 'block';
-                
-                // Auto-scroll to bottom when someone is typing
-                if (this.isAtBottom) {
-                    this.scrollToBottom();
-                }
-            } else {
-                typingIndicator.style.display = 'none';
-            }
+        if (isTyping && sender === this.selectedReceiver) {
+            typingUser.textContent = sender;
+            typingIndicator.style.display = 'block';
+        } else {
+            typingIndicator.style.display = 'none';
         }
     }
 
@@ -571,12 +427,10 @@ class ChatApp {
         
         this.currentUser = null;
         this.selectedReceiver = null;
-        this.currentConversation = null;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
         
-        // Reset login screen
         this.hideLoadingScreen();
     }
 
