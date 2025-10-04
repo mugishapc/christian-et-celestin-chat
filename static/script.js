@@ -10,7 +10,7 @@ class ChatApp {
         this.scrollPosition = 0;
         
         this.initializeEventListeners();
-        this.forceScrollFix();
+        this.initializeScrollSystem();
     }
 
     initializeEventListeners() {
@@ -31,54 +31,50 @@ class ChatApp {
             this.selectReceiver(e.target.value);
         });
 
-        // Add scroll event listener for manual scrolling detection
-        this.initializeScrollHandling();
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => this.toggleMobileMenu());
     }
 
-    forceScrollFix() {
-        // ULTRA POWERFUL SCROLLING FIXES
+    initializeScrollSystem() {
+        // Initialize scroll handling after DOM is ready
         setTimeout(() => {
-            this.applyNuclearScrollFixes();
+            this.setupMessagesContainer();
         }, 100);
         
-        // Prevent any browser interference
-        document.addEventListener('touchmove', (e) => {
-            e.stopPropagation();
-        }, { passive: false });
-        
-        // Prevent elastic scroll on body
+        // Prevent body scroll on mobile
         document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
+        document.documentElement.style.overflow = 'hidden';
     }
 
-    applyNuclearScrollFixes() {
+    setupMessagesContainer() {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        // NUCLEAR APPROACH TO FORCE SCROLLING
-        messagesContainer.style.overflowY = 'scroll';
+        // FORCE SCROLLABLE CONTAINER
+        messagesContainer.style.overflowY = 'auto';
         messagesContainer.style.webkitOverflowScrolling = 'touch';
         messagesContainer.style.height = '100%';
-        messagesContainer.style.maxHeight = 'none';
-        messagesContainer.style.minHeight = '100px';
         
-        // Force hardware acceleration
-        messagesContainer.style.transform = 'translateZ(0)';
-        messagesContainer.style.webkitTransform = 'translateZ(0)';
+        // Add scroll event listener
+        messagesContainer.addEventListener('scroll', () => this.handleScroll());
         
-        // Create and manage scroll-to-bottom button
+        // Create scroll to bottom button
         this.createScrollToBottomButton();
         
-        console.log('🚀 NUCLEAR SCROLLING ACTIVATED');
+        // Ensure scrollbar is always visible
+        this.ensureScrollbarVisibility();
     }
 
     createScrollToBottomButton() {
+        // Remove existing button if any
+        const existingBtn = document.querySelector('.scroll-to-bottom');
+        if (existingBtn) existingBtn.remove();
+
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'scroll-to-bottom';
         scrollBtn.innerHTML = '↓';
         scrollBtn.title = 'Scroll to bottom';
+        scrollBtn.style.display = 'none';
         scrollBtn.addEventListener('click', () => {
             this.scrollToBottom(true);
             scrollBtn.style.display = 'none';
@@ -88,55 +84,11 @@ class ChatApp {
         this.scrollToBottomBtn = scrollBtn;
     }
 
-    initializeScrollHandling() {
-        // This will be called once the messages container is available
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('messages-container');
-            if (messagesContainer) {
-                messagesContainer.addEventListener('scroll', () => this.handleScroll());
-                
-                // ENABLE TOUCH SCROLLING - NUCLEAR APPROACH
-                messagesContainer.style.webkitOverflowScrolling = 'touch';
-                messagesContainer.style.overflowY = 'scroll';
-                messagesContainer.style.overflowX = 'hidden';
-                
-                // Force scrollbar visibility
-                this.ensureScrollbarVisibility();
-                
-                // Add touch events for mobile
-                this.addTouchScrollEvents(messagesContainer);
-            }
-        }, 500);
-    }
-
-    addTouchScrollEvents(container) {
-        let startY = 0;
-        let scrollTop = 0;
-        
-        container.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].pageY;
-            scrollTop = container.scrollTop;
-        }, { passive: true });
-
-        container.addEventListener('touchmove', (e) => {
-            if (!container.scrollHeight > container.clientHeight) return;
-            
-            const touchY = e.touches[0].pageY;
-            const diff = startY - touchY;
-            container.scrollTop = scrollTop + diff;
-            
-            e.preventDefault();
-        }, { passive: false });
-    }
-
     handleScroll() {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        this.isScrolling = true;
-        
-        // Calculate if user is at bottom
-        const threshold = 100; // pixels from bottom
+        const threshold = 100;
         const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
         const maxPosition = messagesContainer.scrollHeight;
         
@@ -146,65 +98,42 @@ class ChatApp {
         if (this.scrollToBottomBtn) {
             this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
         }
-        
-        // Clear existing timeout
-        if (this.scrollTimeout) {
-            clearTimeout(this.scrollTimeout);
-        }
-        
-        // Set a new timeout to mark scrolling as ended
-        this.scrollTimeout = setTimeout(() => {
-            this.isScrolling = false;
-        }, 150);
     }
 
     ensureScrollbarVisibility() {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        // Force scrollbar visibility by ensuring content overflow
-        const checkScrollbar = () => {
-            const hasScrollbar = messagesContainer.scrollHeight > messagesContainer.clientHeight;
-            if (!hasScrollbar) {
-                // Add content to ensure scrollability
-                messagesContainer.style.minHeight = 'calc(100% + 2px)';
-            }
+        // Force scrollbar by ensuring content
+        const forceScrollbar = () => {
+            messagesContainer.style.minHeight = 'calc(100% + 1px)';
         };
 
-        // Check repeatedly
-        checkScrollbar();
-        const interval = setInterval(checkScrollbar, 1000);
-        setTimeout(() => clearInterval(interval), 10000);
+        forceScrollbar();
+        setTimeout(forceScrollbar, 500);
     }
 
     scrollToBottom(force = false) {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        // ULTRA RELIABLE SCROLLING
-        const scroll = () => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
+        if (force || this.isAtBottom) {
             // Multiple attempts for reliability
-            setTimeout(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 50);
-            
-            setTimeout(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 100);
-            
-            setTimeout(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                this.isAtBottom = true;
-                if (this.scrollToBottomBtn) {
-                    this.scrollToBottomBtn.style.display = 'none';
+            const scrollAttempts = [
+                () => messagesContainer.scrollTop = messagesContainer.scrollHeight,
+                () => messagesContainer.scrollTop = messagesContainer.scrollHeight,
+                () => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    this.isAtBottom = true;
+                    if (this.scrollToBottomBtn) {
+                        this.scrollToBottomBtn.style.display = 'none';
+                    }
                 }
-            }, 150);
-        };
+            ];
 
-        if (force || !this.isScrolling || this.isAtBottom) {
-            scroll();
+            scrollAttempts.forEach((attempt, index) => {
+                setTimeout(attempt, index * 50);
+            });
         }
     }
 
@@ -285,13 +214,11 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
-        // NUCLEAR SCROLLING INITIALIZATION
+        // Initialize scrolling system
         setTimeout(() => {
-            this.applyNuclearScrollFixes();
-            this.initializeScrollHandling();
-            this.ensureScrollbarVisibility();
+            this.setupMessagesContainer();
             this.scrollToBottom(true);
-        }, 100);
+        }, 200);
     }
 
     populateUsersList(onlineUsers, allUsers) {
@@ -303,15 +230,6 @@ class ChatApp {
         
         // Add online users first
         if (onlineUsers && onlineUsers.length > 0) {
-            const onlineHeader = document.createElement('li');
-            onlineHeader.innerHTML = '<strong>🟢 Online Users</strong>';
-            onlineHeader.style.background = 'none';
-            onlineHeader.style.borderLeft = 'none';
-            onlineHeader.style.cursor = 'default';
-            onlineHeader.style.padding = '0.5rem';
-            onlineHeader.style.color = '#667eea';
-            usersList.appendChild(onlineHeader);
-            
             onlineUsers.forEach(user => {
                 if (user !== this.currentUser) {
                     this.addUserToUI(user, usersList, receiverSelect, true);
@@ -321,32 +239,30 @@ class ChatApp {
         
         // Add all users (including offline)
         if (allUsers && allUsers.length > 0) {
-            const allHeader = document.createElement('li');
-            allHeader.innerHTML = '<strong>👥 All Users</strong>';
-            allHeader.style.background = 'none';
-            allHeader.style.borderLeft = 'none';
-            allHeader.style.cursor = 'default';
-            allHeader.style.padding = '0.5rem';
-            allHeader.style.color = '#667eea';
-            allHeader.style.marginTop = '1rem';
-            usersList.appendChild(allHeader);
-            
             allUsers.forEach(user => {
                 if (user !== this.currentUser && (!onlineUsers || !onlineUsers.includes(user))) {
                     this.addUserToUI(user, usersList, receiverSelect, false);
                 }
             });
         }
+
+        // Update mobile users display
+        this.updateMobileUsersDisplay();
     }
 
     addUserToUI(username, usersList, receiverSelect, isOnline) {
         // Add to users list
         const li = document.createElement('li');
-        li.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
-        li.addEventListener('click', () => this.selectReceiver(username));
-        if (!isOnline) {
-            li.style.opacity = '0.7';
-        }
+        li.className = 'user-item';
+        li.innerHTML = `
+            <span class="user-status ${isOnline ? 'online' : 'offline'}"></span>
+            <span class="username">${username}</span>
+            <span class="user-badge">${isOnline ? 'Online' : 'Offline'}</span>
+        `;
+        li.addEventListener('click', () => {
+            this.selectReceiver(username);
+            this.closeMobileMenu();
+        });
         usersList.appendChild(li);
         
         // Add to receiver select
@@ -356,35 +272,50 @@ class ChatApp {
         receiverSelect.appendChild(option);
     }
 
+    updateMobileUsersDisplay() {
+        const mobileUsersList = document.getElementById('mobile-users-list');
+        if (!mobileUsersList) return;
+
+        const usersList = document.getElementById('users-list');
+        mobileUsersList.innerHTML = usersList.innerHTML;
+    }
+
     addUserToList(username, isOnline) {
         if (username === this.currentUser) return;
         
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        // Check if user already exists in the list
-        const existingUser = Array.from(usersList.children).find(li => 
-            li.textContent.includes(username)
-        );
+        // Check if user already exists
+        const existingItems = usersList.querySelectorAll('.user-item');
+        let userExists = false;
         
-        if (!existingUser) {
+        existingItems.forEach(item => {
+            const usernameSpan = item.querySelector('.username');
+            if (usernameSpan && usernameSpan.textContent === username) {
+                userExists = true;
+                // Update status
+                const status = item.querySelector('.user-status');
+                const badge = item.querySelector('.user-badge');
+                if (status && badge) {
+                    status.className = `user-status ${isOnline ? 'online' : 'offline'}`;
+                    badge.textContent = isOnline ? 'Online' : 'Offline';
+                }
+            }
+        });
+        
+        if (!userExists) {
             this.addUserToUI(username, usersList, receiverSelect, isOnline);
-        } else {
-            // Update online status
-            existingUser.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
-            if (!isOnline) {
-                existingUser.style.opacity = '0.7';
-            } else {
-                existingUser.style.opacity = '1';
-            }
-            
-            // Update select option
-            const options = Array.from(receiverSelect.options);
-            const existingOption = options.find(opt => opt.value === username);
-            if (existingOption) {
-                existingOption.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
-            }
         }
+        
+        // Update select option
+        const options = Array.from(receiverSelect.options);
+        const existingOption = options.find(opt => opt.value === username);
+        if (existingOption) {
+            existingOption.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
+        }
+        
+        this.updateMobileUsersDisplay();
     }
 
     removeUserFromList(username) {
@@ -392,11 +323,13 @@ class ChatApp {
         const receiverSelect = document.getElementById('receiver-select');
         
         // Remove from users list
-        const userItems = Array.from(usersList.children);
-        const userItem = userItems.find(li => li.textContent.includes(username));
-        if (userItem) {
-            userItem.remove();
-        }
+        const userItems = usersList.querySelectorAll('.user-item');
+        userItems.forEach(item => {
+            const usernameSpan = item.querySelector('.username');
+            if (usernameSpan && usernameSpan.textContent === username) {
+                item.remove();
+            }
+        });
         
         // Update to offline in select
         const options = Array.from(receiverSelect.options);
@@ -411,6 +344,8 @@ class ChatApp {
             document.getElementById('receiver-select').value = '';
             this.showWelcomeMessage();
         }
+        
+        this.updateMobileUsersDisplay();
     }
 
     selectReceiver(username) {
@@ -418,6 +353,7 @@ class ChatApp {
         
         // Update UI
         document.getElementById('receiver-select').value = username;
+        document.getElementById('mobile-receiver-select').value = username;
         
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
@@ -427,9 +363,10 @@ class ChatApp {
             sendBtn.disabled = false;
             messageInput.focus();
             
-            this.loadConversationHistory(username);
+            // Update chat header for mobile
+            document.getElementById('chat-with-user').textContent = username;
             
-            // Update active state in users list
+            this.loadConversationHistory(username);
             this.updateUsersListActiveState(username);
         } else {
             messageInput.disabled = true;
@@ -440,10 +377,11 @@ class ChatApp {
 
     updateUsersListActiveState(activeUsername) {
         const usersList = document.getElementById('users-list');
-        const items = usersList.querySelectorAll('li');
+        const items = usersList.querySelectorAll('.user-item');
         
         items.forEach(item => {
-            if (item.textContent.includes(activeUsername)) {
+            const usernameSpan = item.querySelector('.username');
+            if (usernameSpan && usernameSpan.textContent === activeUsername) {
                 item.classList.add('active');
             } else {
                 item.classList.remove('active');
@@ -471,11 +409,9 @@ class ChatApp {
         
         messages.forEach(message => this.displayMessage(message));
         
-        // ULTRA RELIABLE SCROLLING AFTER HISTORY LOAD
         setTimeout(() => {
             this.scrollToBottom(true);
-            this.ensureScrollbarVisibility();
-        }, 200);
+        }, 100);
     }
 
     sendMessage() {
@@ -490,9 +426,7 @@ class ChatApp {
             message: message
         });
         
-        // Stop typing indicator
         this.stopTyping();
-        
         messageInput.value = '';
         messageInput.focus();
     }
@@ -521,34 +455,25 @@ class ChatApp {
         
         messagesContainer.appendChild(messageElement);
         
-        // Scroll to bottom when new message is added
-        const shouldScroll = message.sender === this.currentUser || 
-                           (message.sender === this.selectedReceiver && message.receiver === this.currentUser);
-        
-        if (shouldScroll) {
+        if (message.sender === this.currentUser || 
+            (message.sender === this.selectedReceiver && message.receiver === this.currentUser)) {
             this.scrollToBottom(true);
         }
-        
-        // Ensure scrollbar remains visible
-        this.ensureScrollbarVisibility();
     }
 
     handleTyping() {
         if (!this.selectedReceiver) return;
         
-        // Emit typing start
         this.socket.emit('typing', {
             sender: this.currentUser,
             receiver: this.selectedReceiver,
             is_typing: true
         });
         
-        // Clear existing timeout
         if (this.typingTimeout) {
             clearTimeout(this.typingTimeout);
         }
         
-        // Set timeout to stop typing indicator
         this.typingTimeout = setTimeout(() => {
             this.stopTyping();
         }, 1000);
@@ -607,7 +532,6 @@ class ChatApp {
     }
 
     showLoginError(message) {
-        // Reset to login screen and show error
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
@@ -620,14 +544,22 @@ class ChatApp {
             </div>
         `;
         
-        // Re-attach event listeners
         document.getElementById('login-btn').addEventListener('click', () => this.login());
         document.getElementById('username-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
         });
         
-        // Focus on input
         document.getElementById('username-input').focus();
+    }
+
+    toggleMobileMenu() {
+        const mobileMenu = document.getElementById('mobile-users-menu');
+        mobileMenu.classList.toggle('active');
+    }
+
+    closeMobileMenu() {
+        const mobileMenu = document.getElementById('mobile-users-menu');
+        mobileMenu.classList.remove('active');
     }
 
     logout() {
@@ -641,7 +573,6 @@ class ChatApp {
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
         
-        // Reset login form
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
@@ -654,13 +585,11 @@ class ChatApp {
             </div>
         `;
         
-        // Re-attach event listeners
         document.getElementById('login-btn').addEventListener('click', () => this.login());
         document.getElementById('username-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
         });
         
-        // Focus on input
         document.getElementById('username-input').focus();
     }
 
@@ -671,29 +600,7 @@ class ChatApp {
     }
 }
 
-// NUCLEAR INITIALIZATION - FORCE SCROLLING TO WORK
+// Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Prevent any browser interference
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    
-    const app = new ChatApp();
-    
-    // Additional nuclear scroll fixes
-    setTimeout(() => {
-        const messagesContainer = document.getElementById('messages-container');
-        if (messagesContainer) {
-            messagesContainer.style.overflowY = 'scroll';
-            messagesContainer.style.webkitOverflowScrolling = 'touch';
-        }
-    }, 1000);
+    new ChatApp();
 });
-
-// Prevent elastic scroll on entire page
-document.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-}, { passive: false });
-
-console.log('🚀 ULTRA POWERFUL SCROLLING INITIALIZED - READY FOR WHATSAPP-LEVEL PERFORMANCE!');

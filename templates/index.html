@@ -23,7 +23,8 @@
     <!-- Chat Screen -->
     <div id="chat-screen" class="screen">
         <div class="chat-container">
-            <header class="chat-header">
+            <!-- Desktop Header -->
+            <header class="chat-header desktop-header">
                 <h2>Christian Et Celestin Chat</h2>
                 <div class="user-info">
                     <span id="current-user"></span>
@@ -31,10 +32,29 @@
                 </div>
             </header>
 
+            <!-- Mobile Header -->
+            <header class="chat-header mobile-header">
+                <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
+                <div class="mobile-chat-info">
+                    <span id="chat-with-user">Select User</span>
+                </div>
+                <button id="logout-btn-mobile" class="logout-btn-mobile">Logout</button>
+            </header>
+
             <div class="chat-main">
-                <aside class="users-sidebar">
-                    <h3>Online Users</h3>
-                    <ul id="users-list"></ul>
+                <!-- Desktop Sidebar -->
+                <aside class="users-sidebar desktop-sidebar">
+                    <h3>Users</h3>
+                    <ul id="users-list" class="users-list"></ul>
+                </aside>
+
+                <!-- Mobile Users Menu -->
+                <aside id="mobile-users-menu" class="mobile-users-menu">
+                    <div class="mobile-menu-header">
+                        <h3>Users</h3>
+                        <button class="close-menu-btn" onclick="app.closeMobileMenu()">×</button>
+                    </div>
+                    <ul id="mobile-users-list" class="users-list"></ul>
                 </aside>
 
                 <main class="chat-area">
@@ -49,13 +69,25 @@
                         <span id="typing-user"></span> is typing...
                     </div>
 
-                    <div class="message-input-container">
+                    <!-- Desktop Input -->
+                    <div class="message-input-container desktop-input">
                         <div class="input-group">
                             <select id="receiver-select">
                                 <option value="">Select a user to chat with</option>
                             </select>
                             <input type="text" id="message-input" placeholder="Type your message..." disabled>
                             <button id="send-btn" disabled>Send</button>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Input -->
+                    <div class="message-input-container mobile-input">
+                        <div class="input-group">
+                            <select id="mobile-receiver-select">
+                                <option value="">Select user</option>
+                            </select>
+                            <input type="text" id="mobile-message-input" placeholder="Type message..." disabled>
+                            <button id="mobile-send-btn" disabled>Send</button>
                         </div>
                     </div>
                 </main>

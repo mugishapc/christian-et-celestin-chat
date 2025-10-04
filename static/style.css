@@ -12,7 +12,7 @@ html, body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow: hidden;
-    position: fixed; /* PREVENT BROWSER SCROLLING */
+    position: fixed;
 }
 
 /* Screen management */
@@ -26,12 +26,12 @@ html, body {
 }
 
 .screen.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Login Screen */
 #login-screen.active {
-    display: flex;
     justify-content: center;
     align-items: center;
     padding: 20px;
@@ -105,19 +105,15 @@ html, body {
     100% { transform: rotate(360deg); }
 }
 
-/* Chat Screen - ULTRA POWERFUL SCROLLING LAYOUT */
-#chat-screen.active {
+/* Chat Screen */
+.chat-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
     background: white;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
 }
 
+/* Headers */
 .chat-header {
     background: #667eea;
     color: white;
@@ -126,21 +122,34 @@ html, body {
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    position: relative;
     z-index: 100;
 }
 
-.chat-header h2 {
-    font-size: 1.3rem;
-}
-
-.user-info {
+.desktop-header {
     display: flex;
-    align-items: center;
-    gap: 1rem;
 }
 
-#logout-btn {
+.mobile-header {
+    display: none;
+    position: relative;
+}
+
+.mobile-menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.mobile-chat-info {
+    flex: 1;
+    text-align: center;
+    font-weight: bold;
+}
+
+.logout-btn-mobile {
     background: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -171,13 +180,16 @@ html, body {
 
 .users-sidebar h3 {
     margin-bottom: 1rem;
+    color: #333;
 }
 
-#users-list {
+.users-list {
     list-style: none;
 }
 
-#users-list li {
+.user-item {
+    display: flex;
+    align-items: center;
     padding: 1rem;
     margin-bottom: 0.5rem;
     background: white;
@@ -185,19 +197,84 @@ html, body {
     border-left: 4px solid #667eea;
     cursor: pointer;
     transition: all 0.2s ease;
+    gap: 0.75rem;
 }
 
-#users-list li.active {
+.user-item.active {
     background: #667eea;
     color: white;
 }
 
-#users-list li:hover {
+.user-item:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
-/* Chat area - ULTRA POWERFUL SCROLLING */
+.user-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.user-status.online {
+    background: #28a745;
+}
+
+.user-status.offline {
+    background: #6c757d;
+}
+
+.username {
+    flex: 1;
+    font-weight: 500;
+}
+
+.user-badge {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    padding: 0.2rem 0.5rem;
+    background: rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+
+/* Mobile Users Menu */
+.mobile-users-menu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 280px;
+    height: 100%;
+    background: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+}
+
+.mobile-users-menu.active {
+    left: 0;
+}
+
+.mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #667eea;
+    color: white;
+}
+
+.close-menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+/* Chat area */
 .chat-area {
     flex: 1;
     display: flex;
@@ -206,39 +283,29 @@ html, body {
     position: relative;
 }
 
-/* MESSAGES CONTAINER - WHATSAPP LEVEL SCROLLING */
+/* MESSAGES CONTAINER - FIXED SCROLLING */
 .messages-container {
     flex: 1;
     padding: 1rem;
-    overflow-y: scroll !important; /* FORCE SCROLL */
+    overflow-y: auto !important;
     background: #f8f9fa;
     min-height: 0;
-   
-    /* POWERFUL MOBILE SCROLLING */
--webkit-overflow-scrolling: touch !important; /* iOS smooth scrolling */
-scroll-behavior: smooth; /* smooth scrolling for modern browsers */
-
-    
-    /* PREVENT ANY HIDING */
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth;
     height: auto !important;
     max-height: none !important;
-    
-    /* TOUCH OPTIMIZATION */
     touch-action: pan-y;
     -webkit-user-select: none;
     user-select: none;
-    
-    /* SCROLLBAR ALWAYS VISIBLE */
     scrollbar-width: thin;
     scrollbar-color: #667eea #f1f1f1;
 }
 
-/* Webkit Scrollbars - ALWAYS VISIBLE */
+/* Webkit Scrollbars */
 .messages-container::-webkit-scrollbar {
     width: 6px;
     height: 6px;
     display: block !important;
-    visibility: visible !important;
 }
 
 .messages-container::-webkit-scrollbar-track {
@@ -249,16 +316,10 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
 .messages-container::-webkit-scrollbar-thumb {
     background: #667eea;
     border-radius: 3px;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
     background: #5a6fd8;
-}
-
-.messages-container::-webkit-scrollbar-thumb:active {
-    background: #4a5fc8;
 }
 
 /* Message styles */
@@ -325,8 +386,15 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     background: white;
     border-top: 1px solid #e9ecef;
     flex-shrink: 0;
-    position: relative;
     z-index: 50;
+}
+
+.desktop-input {
+    display: block;
+}
+
+.mobile-input {
+    display: none;
 }
 
 .input-group {
@@ -334,7 +402,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     gap: 0.5rem;
 }
 
-#receiver-select {
+#receiver-select, #mobile-receiver-select {
     flex: 0 0 180px;
     padding: 0.75rem;
     border: 1px solid #ddd;
@@ -342,7 +410,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     background: white;
 }
 
-#message-input {
+#message-input, #mobile-message-input {
     flex: 1;
     padding: 0.75rem;
     border: 1px solid #ddd;
@@ -350,7 +418,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     font-size: 1rem;
 }
 
-#send-btn {
+#send-btn, #mobile-send-btn {
     padding: 0.75rem 1.5rem;
     background: #667eea;
     color: white;
@@ -360,7 +428,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     font-size: 1rem;
 }
 
-#send-btn:disabled {
+#send-btn:disabled, #mobile-send-btn:disabled {
     background: #ccc;
     cursor: not-allowed;
 }
@@ -394,6 +462,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     justify-content: center;
     z-index: 90;
     transition: all 0.3s ease;
+    font-size: 1.2rem;
 }
 
 .scroll-to-bottom:hover {
@@ -401,10 +470,26 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     background: #5a6fd8;
 }
 
-/* Mobile responsive - OPTIMIZED FOR TOUCH */
+/* Mobile responsive */
 @media (max-width: 768px) {
-    .chat-main {
-        flex-direction: column;
+    .desktop-header {
+        display: none;
+    }
+    
+    .mobile-header {
+        display: flex;
+    }
+    
+    .desktop-sidebar {
+        display: none;
+    }
+    
+    .desktop-input {
+        display: none;
+    }
+    
+    .mobile-input {
+        display: block;
     }
     
     .users-sidebar {
@@ -412,21 +497,19 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
         height: 120px;
         border-right: none;
         border-bottom: 1px solid #e9ecef;
-        -webkit-overflow-scrolling: touch;
-        overflow-x: auto;
-        white-space: nowrap;
     }
     
-    #users-list {
+    .users-list {
         display: flex;
         overflow-x: auto;
         gap: 0.5rem;
         -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.5rem;
     }
     
-    #users-list li {
+    .user-item {
         flex: 0 0 auto;
-        min-width: 120px;
+        min-width: 150px;
         margin-bottom: 0;
     }
     
@@ -434,7 +517,7 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
         flex-direction: column;
     }
     
-    #receiver-select {
+    #receiver-select, #mobile-receiver-select {
         flex: none;
         width: 100%;
     }
@@ -443,11 +526,8 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
         max-width: 90%;
     }
     
-    /* MOBILE SCROLLING OPTIMIZATION */
     .messages-container {
         padding: 0.5rem;
-        -webkit-overflow-scrolling: touch !important;
-        overflow-y: scroll !important;
     }
     
     .scroll-to-bottom {
@@ -458,18 +538,10 @@ scroll-behavior: smooth; /* smooth scrolling for modern browsers */
     }
 }
 
-/* FORCE SCROLLING ON ALL DEVICES */
+/* Ensure scrolling works on all devices */
 @media (max-width: 1024px) {
     .messages-container {
         -webkit-overflow-scrolling: touch !important;
-        overflow-y: scroll !important;
+        overflow-y: auto !important;
     }
-}
-
-/* PREVENT ANY OVERFLOW HIDDEN */
-body.prevent-scroll {
-    overflow: hidden !important;
-    position: fixed !important;
-    width: 100% !important;
-    height: 100% !important;
 }
