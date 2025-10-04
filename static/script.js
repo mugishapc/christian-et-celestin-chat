@@ -5,6 +5,7 @@ class ChatApp {
         this.selectedReceiver = null;
         this.isScrolling = false;
         this.scrollTimeout = null;
+        this.typingTimeout = null;
         
         this.initializeEventListeners();
     }
@@ -21,6 +22,8 @@ class ChatApp {
             if (e.key === 'Enter') this.sendMessage();
         });
 
+        document.getElementById('message-input').addEventListener('input', () => this.handleTyping());
+        
         document.getElementById('receiver-select').addEventListener('change', (e) => {
             this.selectReceiver(e.target.value);
         });
@@ -98,6 +101,301 @@ class ChatApp {
         }
     }
 
+    login() {
+        const usernameInput = document.getElementById('username-input');
+        const username = usernameInput.value.trim();
+
+        if (!username) {
+            this.showLoginError('Please enter a username');
+            return;
+        }
+
+        if (username.length > 20) {
+            this.showLoginError('Username must be 20 characters or less');
+            return;
+        }
+
+        this.showLoadingScreen();
+        this.connectToSocket(username);
+    }
+
+    showLoadingScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        loginScreen.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+            </div>
+        `;
+        
+        // Add fade-in animation
+        setTimeout(() => {
+            const loadingContainer = loginScreen.querySelector('.loading-container');
+            if (loadingContainer) {
+                loadingContainer.style.animation = 'fadeIn 0.5s ease-in';
+            }
+        }, 10);
+    }
+
+    connectToSocket(username) {
+        this.socket = io();
+
+        this.socket.on('connect', () => {
+            this.socket.emit('login', { username });
+        });
+
+        this.socket.on('login_success', (data) => {
+            this.currentUser = data.username;
+            this.showChatScreen(data.online_users, data.all_users);
+        });
+
+        this.socket.on('login_failed', (data) => {
+            this.showLoginError(data.message);
+        });
+
+        this.socket.on('user_joined', (data) => {
+            this.addUserToList(data.username, true);
+        });
+
+        this.socket.on('user_left', (data) => {
+            this.removeUserFromList(data.username);
+        });
+
+        this.socket.on('new_message', (data) => {
+            if (this.isMessageForCurrentConversation(data)) {
+                this.displayMessage(data);
+                this.scrollToBottom();
+            }
+        });
+
+        this.socket.on('conversation_history', (data) => {
+            this.displayConversationHistory(data.messages);
+            this.scrollToBottom();
+        });
+
+        this.socket.on('user_typing', (data) => {
+            this.showTypingIndicator(data.sender, data.is_typing);
+        });
+    }
+
+    showChatScreen(onlineUsers, allUsers) {
+        document.getElementById('login-screen').classList.remove('active');
+        document.getElementById('chat-screen').classList.add('active');
+        
+        document.getElementById('current-user').textContent = this.currentUser;
+        this.populateUsersList(onlineUsers, allUsers);
+        this.showWelcomeMessage();
+        
+        // Initialize scrolling after chat screen is shown
+        setTimeout(() => {
+            this.initializeScrollHandling();
+            this.ensureScrollbarVisibility();
+        }, 500);
+    }
+
+    populateUsersList(onlineUsers, allUsers) {
+        const usersList = document.getElementById('users-list');
+        const receiverSelect = document.getElementById('receiver-select');
+        
+        usersList.innerHTML = '';
+        receiverSelect.innerHTML = '<option value="">Select a user to chat with</option>';
+        
+        // Add online users first
+        if (onlineUsers && onlineUsers.length > 0) {
+            const onlineHeader = document.createElement('li');
+            onlineHeader.innerHTML = '<strong>🟢 Online Users</strong>';
+            onlineHeader.style.background = 'none';
+            onlineHeader.style.borderLeft = 'none';
+            onlineHeader.style.cursor = 'default';
+            onlineHeader.style.padding = '0.5rem';
+            onlineHeader.style.color = '#667eea';
+            usersList.appendChild(onlineHeader);
+            
+            onlineUsers.forEach(user => {
+                if (user !== this.currentUser) {
+                    this.addUserToUI(user, usersList, receiverSelect, true);
+                }
+            });
+        }
+        
+        // Add all users (including offline)
+        if (allUsers && allUsers.length > 0) {
+            const allHeader = document.createElement('li');
+            allHeader.innerHTML = '<strong>👥 All Users</strong>';
+            allHeader.style.background = 'none';
+            allHeader.style.borderLeft = 'none';
+            allHeader.style.cursor = 'default';
+            allHeader.style.padding = '0.5rem';
+            allHeader.style.color = '#667eea';
+            allHeader.style.marginTop = '1rem';
+            usersList.appendChild(allHeader);
+            
+            allUsers.forEach(user => {
+                if (user !== this.currentUser && (!onlineUsers || !onlineUsers.includes(user))) {
+                    this.addUserToUI(user, usersList, receiverSelect, false);
+                }
+            });
+        }
+    }
+
+    addUserToUI(username, usersList, receiverSelect, isOnline) {
+        // Add to users list
+        const li = document.createElement('li');
+        li.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
+        li.addEventListener('click', () => this.selectReceiver(username));
+        if (!isOnline) {
+            li.style.opacity = '0.7';
+        }
+        usersList.appendChild(li);
+        
+        // Add to receiver select
+        const option = document.createElement('option');
+        option.value = username;
+        option.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
+        receiverSelect.appendChild(option);
+    }
+
+    addUserToList(username, isOnline) {
+        if (username === this.currentUser) return;
+        
+        const usersList = document.getElementById('users-list');
+        const receiverSelect = document.getElementById('receiver-select');
+        
+        // Check if user already exists in the list
+        const existingUser = Array.from(usersList.children).find(li => 
+            li.textContent.includes(username)
+        );
+        
+        if (!existingUser) {
+            this.addUserToUI(username, usersList, receiverSelect, isOnline);
+        } else {
+            // Update online status
+            existingUser.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
+            if (!isOnline) {
+                existingUser.style.opacity = '0.7';
+            } else {
+                existingUser.style.opacity = '1';
+            }
+            
+            // Update select option
+            const options = Array.from(receiverSelect.options);
+            const existingOption = options.find(opt => opt.value === username);
+            if (existingOption) {
+                existingOption.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
+            }
+        }
+    }
+
+    removeUserFromList(username) {
+        const usersList = document.getElementById('users-list');
+        const receiverSelect = document.getElementById('receiver-select');
+        
+        // Remove from users list
+        const userItems = Array.from(usersList.children);
+        const userItem = userItems.find(li => li.textContent.includes(username));
+        if (userItem) {
+            userItem.remove();
+        }
+        
+        // Update to offline in select
+        const options = Array.from(receiverSelect.options);
+        const userOption = options.find(opt => opt.value === username);
+        if (userOption) {
+            userOption.textContent = `${username} (offline)`;
+        }
+        
+        // If the removed user was the selected receiver, clear selection
+        if (this.selectedReceiver === username) {
+            this.selectedReceiver = null;
+            document.getElementById('receiver-select').value = '';
+            this.showWelcomeMessage();
+        }
+    }
+
+    selectReceiver(username) {
+        this.selectedReceiver = username;
+        
+        // Update UI
+        document.getElementById('receiver-select').value = username;
+        
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        if (username) {
+            messageInput.disabled = false;
+            sendBtn.disabled = false;
+            messageInput.focus();
+            
+            this.loadConversationHistory(username);
+            
+            // Update active state in users list
+            this.updateUsersListActiveState(username);
+        } else {
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            this.showWelcomeMessage();
+        }
+    }
+
+    updateUsersListActiveState(activeUsername) {
+        const usersList = document.getElementById('users-list');
+        const items = usersList.querySelectorAll('li');
+        
+        items.forEach(item => {
+            if (item.textContent.includes(activeUsername)) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+
+    loadConversationHistory(otherUser) {
+        if (this.socket && otherUser) {
+            this.socket.emit('get_conversation', {
+                user1: this.currentUser,
+                user2: otherUser
+            });
+        }
+    }
+
+    displayConversationHistory(messages) {
+        const messagesContainer = document.getElementById('messages-container');
+        messagesContainer.innerHTML = '';
+        
+        if (messages.length === 0) {
+            this.showWelcomeMessage('Start a new conversation with ' + this.selectedReceiver);
+            return;
+        }
+        
+        messages.forEach(message => this.displayMessage(message));
+        
+        // Scroll to bottom after loading history
+        setTimeout(() => {
+            this.scrollToBottom(true);
+            this.ensureScrollbarVisibility();
+        }, 100);
+    }
+
+    sendMessage() {
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        if (!message || !this.selectedReceiver) return;
+        
+        this.socket.emit('send_message', {
+            sender: this.currentUser,
+            receiver: this.selectedReceiver,
+            message: message
+        });
+        
+        // Stop typing indicator
+        this.stopTyping();
+        
+        messageInput.value = '';
+        messageInput.focus();
+    }
+
     displayMessage(message) {
         const messagesContainer = document.getElementById('messages-container');
         
@@ -134,67 +432,145 @@ class ChatApp {
         this.ensureScrollbarVisibility();
     }
 
-    displayConversationHistory(messages) {
+    handleTyping() {
+        if (!this.selectedReceiver) return;
+        
+        // Emit typing start
+        this.socket.emit('typing', {
+            sender: this.currentUser,
+            receiver: this.selectedReceiver,
+            is_typing: true
+        });
+        
+        // Clear existing timeout
+        if (this.typingTimeout) {
+            clearTimeout(this.typingTimeout);
+        }
+        
+        // Set timeout to stop typing indicator
+        this.typingTimeout = setTimeout(() => {
+            this.stopTyping();
+        }, 1000);
+    }
+
+    stopTyping() {
+        if (!this.selectedReceiver) return;
+        
+        this.socket.emit('typing', {
+            sender: this.currentUser,
+            receiver: this.selectedReceiver,
+            is_typing: false
+        });
+        
+        if (this.typingTimeout) {
+            clearTimeout(this.typingTimeout);
+        }
+    }
+
+    showTypingIndicator(sender, isTyping) {
+        const typingIndicator = document.getElementById('typing-indicator');
+        const typingUser = document.getElementById('typing-user');
+        
+        if (isTyping && sender === this.selectedReceiver) {
+            typingUser.textContent = sender;
+            typingIndicator.style.display = 'block';
+        } else {
+            typingIndicator.style.display = 'none';
+        }
+    }
+
+    showWelcomeMessage(customMessage = null) {
         const messagesContainer = document.getElementById('messages-container');
         messagesContainer.innerHTML = '';
         
-        if (messages.length === 0) {
-            this.showWelcomeMessage('Start a new conversation with ' + this.selectedReceiver);
-            return;
+        const welcomeMessage = document.createElement('div');
+        welcomeMessage.className = 'welcome-message';
+        
+        if (customMessage) {
+            welcomeMessage.innerHTML = `<p>${customMessage}</p>`;
+        } else {
+            welcomeMessage.innerHTML = `
+                <p>Welcome to Christian Et Celestin Chat!</p>
+                <p>Select a user to start a private conversation</p>
+            `;
         }
         
-        messages.forEach(message => this.displayMessage(message));
-        
-        // Scroll to bottom after loading history
-        setTimeout(() => {
-            this.scrollToBottom(true);
-            this.ensureScrollbarVisibility();
-        }, 100);
+        messagesContainer.appendChild(welcomeMessage);
+        this.scrollToBottom();
     }
 
-    showChatScreen(users) {
-        document.getElementById('login-screen').classList.remove('active');
-        document.getElementById('chat-screen').classList.add('active');
-        
-        document.getElementById('current-user').textContent = this.currentUser;
-        this.populateUsersList(users);
-        this.showWelcomeMessage();
-        
-        // Initialize scrolling after chat screen is shown
-        setTimeout(() => {
-            this.initializeScrollHandling();
-            this.ensureScrollbarVisibility();
-        }, 500);
+    isMessageForCurrentConversation(message) {
+        if (!this.selectedReceiver) return false;
+        return (message.sender === this.currentUser && message.receiver === this.selectedReceiver) ||
+               (message.sender === this.selectedReceiver && message.receiver === this.currentUser);
     }
 
-    // ... rest of your existing methods remain the same ...
-
-    showLoadingScreen() {
+    showLoginError(message) {
+        // Reset to login screen and show error
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
-            <div class="loading-container">
-                <div class="loading-spinner"></div>
-                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+            <div class="login-container">
+                <h1>Christian Et Celestin Chat</h1>
+                <div class="login-form">
+                    <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
+                    <button id="login-btn">Join Chat</button>
+                    <div id="login-error" class="error-message">${message}</div>
+                </div>
             </div>
         `;
         
-        // Add fade-in animation
-        setTimeout(() => {
-            const loadingContainer = loginScreen.querySelector('.loading-container');
-            if (loadingContainer) {
-                loadingContainer.style.animation = 'fadeIn 0.5s ease-in';
-            }
-        }, 10);
+        // Re-attach event listeners
+        document.getElementById('login-btn').addEventListener('click', () => this.login());
+        document.getElementById('username-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.login();
+        });
+        
+        // Focus on input
+        document.getElementById('username-input').focus();
+    }
+
+    logout() {
+        if (this.socket) {
+            this.socket.disconnect();
+        }
+        
+        this.currentUser = null;
+        this.selectedReceiver = null;
+        
+        document.getElementById('chat-screen').classList.remove('active');
+        document.getElementById('login-screen').classList.add('active');
+        
+        // Reset login form
+        const loginScreen = document.getElementById('login-screen');
+        loginScreen.innerHTML = `
+            <div class="login-container">
+                <h1>Christian Et Celestin Chat</h1>
+                <div class="login-form">
+                    <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
+                    <button id="login-btn">Join Chat</button>
+                    <div id="login-error" class="error-message"></div>
+                </div>
+            </div>
+        `;
+        
+        // Re-attach event listeners
+        document.getElementById('login-btn').addEventListener('click', () => this.login());
+        document.getElementById('username-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.login();
+        });
+        
+        // Focus on input
+        document.getElementById('username-input').focus();
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     new ChatApp();
-    
-    // Additional scrollbar visibility check
-    setTimeout(() => {
-        const app = new ChatApp();
-        app.ensureScrollbarVisibility();
-    }, 2000);
 });
