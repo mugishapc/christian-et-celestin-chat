@@ -6,8 +6,11 @@ class ChatApp {
         this.isScrolling = false;
         this.scrollTimeout = null;
         this.typingTimeout = null;
+        this.isAtBottom = true;
+        this.scrollPosition = 0;
         
         this.initializeEventListeners();
+        this.forceScrollFix();
     }
 
     initializeEventListeners() {
@@ -32,6 +35,59 @@ class ChatApp {
         this.initializeScrollHandling();
     }
 
+    forceScrollFix() {
+        // ULTRA POWERFUL SCROLLING FIXES
+        setTimeout(() => {
+            this.applyNuclearScrollFixes();
+        }, 100);
+        
+        // Prevent any browser interference
+        document.addEventListener('touchmove', (e) => {
+            e.stopPropagation();
+        }, { passive: false });
+        
+        // Prevent elastic scroll on body
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+    }
+
+    applyNuclearScrollFixes() {
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
+        // NUCLEAR APPROACH TO FORCE SCROLLING
+        messagesContainer.style.overflowY = 'scroll';
+        messagesContainer.style.webkitOverflowScrolling = 'touch';
+        messagesContainer.style.height = '100%';
+        messagesContainer.style.maxHeight = 'none';
+        messagesContainer.style.minHeight = '100px';
+        
+        // Force hardware acceleration
+        messagesContainer.style.transform = 'translateZ(0)';
+        messagesContainer.style.webkitTransform = 'translateZ(0)';
+        
+        // Create and manage scroll-to-bottom button
+        this.createScrollToBottomButton();
+        
+        console.log('🚀 NUCLEAR SCROLLING ACTIVATED');
+    }
+
+    createScrollToBottomButton() {
+        const scrollBtn = document.createElement('button');
+        scrollBtn.className = 'scroll-to-bottom';
+        scrollBtn.innerHTML = '↓';
+        scrollBtn.title = 'Scroll to bottom';
+        scrollBtn.addEventListener('click', () => {
+            this.scrollToBottom(true);
+            scrollBtn.style.display = 'none';
+        });
+        
+        document.querySelector('.chat-area').appendChild(scrollBtn);
+        this.scrollToBottomBtn = scrollBtn;
+    }
+
     initializeScrollHandling() {
         // This will be called once the messages container is available
         setTimeout(() => {
@@ -39,13 +95,38 @@ class ChatApp {
             if (messagesContainer) {
                 messagesContainer.addEventListener('scroll', () => this.handleScroll());
                 
-                // Enable touch scrolling
+                // ENABLE TOUCH SCROLLING - NUCLEAR APPROACH
                 messagesContainer.style.webkitOverflowScrolling = 'touch';
+                messagesContainer.style.overflowY = 'scroll';
+                messagesContainer.style.overflowX = 'hidden';
                 
                 // Force scrollbar visibility
                 this.ensureScrollbarVisibility();
+                
+                // Add touch events for mobile
+                this.addTouchScrollEvents(messagesContainer);
             }
-        }, 1000);
+        }, 500);
+    }
+
+    addTouchScrollEvents(container) {
+        let startY = 0;
+        let scrollTop = 0;
+        
+        container.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].pageY;
+            scrollTop = container.scrollTop;
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!container.scrollHeight > container.clientHeight) return;
+            
+            const touchY = e.touches[0].pageY;
+            const diff = startY - touchY;
+            container.scrollTop = scrollTop + diff;
+            
+            e.preventDefault();
+        }, { passive: false });
     }
 
     handleScroll() {
@@ -53,6 +134,18 @@ class ChatApp {
         if (!messagesContainer) return;
 
         this.isScrolling = true;
+        
+        // Calculate if user is at bottom
+        const threshold = 100; // pixels from bottom
+        const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
+        const maxPosition = messagesContainer.scrollHeight;
+        
+        this.isAtBottom = (maxPosition - currentPosition) <= threshold;
+        
+        // Show/hide scroll to bottom button
+        if (this.scrollToBottomBtn) {
+            this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
+        }
         
         // Clear existing timeout
         if (this.scrollTimeout) {
@@ -73,31 +166,45 @@ class ChatApp {
         const checkScrollbar = () => {
             const hasScrollbar = messagesContainer.scrollHeight > messagesContainer.clientHeight;
             if (!hasScrollbar) {
-                // Add minimal padding to ensure scrollbar area is reserved
-                messagesContainer.style.minHeight = 'calc(100% + 1px)';
+                // Add content to ensure scrollability
+                messagesContainer.style.minHeight = 'calc(100% + 2px)';
             }
         };
 
-        // Check initially and after content changes
+        // Check repeatedly
         checkScrollbar();
-        setTimeout(checkScrollbar, 500);
-        setTimeout(checkScrollbar, 1000);
+        const interval = setInterval(checkScrollbar, 1000);
+        setTimeout(() => clearInterval(interval), 10000);
     }
 
     scrollToBottom(force = false) {
-        // Only auto-scroll if not manually scrolling or if forced
-        if (!this.isScrolling || force) {
-            const messagesContainer = document.getElementById('messages-container');
-            if (messagesContainer) {
-                // Use multiple methods to ensure scrolling works
-                setTimeout(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }, 0);
-                
-                setTimeout(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }, 100);
-            }
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
+        // ULTRA RELIABLE SCROLLING
+        const scroll = () => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Multiple attempts for reliability
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 50);
+            
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
+            
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                this.isAtBottom = true;
+                if (this.scrollToBottomBtn) {
+                    this.scrollToBottomBtn.style.display = 'none';
+                }
+            }, 150);
+        };
+
+        if (force || !this.isScrolling || this.isAtBottom) {
+            scroll();
         }
     }
 
@@ -127,14 +234,6 @@ class ChatApp {
                 <div class="loading-text">Launching Christian Et Celestin Chat...</div>
             </div>
         `;
-        
-        // Add fade-in animation
-        setTimeout(() => {
-            const loadingContainer = loginScreen.querySelector('.loading-container');
-            if (loadingContainer) {
-                loadingContainer.style.animation = 'fadeIn 0.5s ease-in';
-            }
-        }, 10);
     }
 
     connectToSocket(username) {
@@ -186,11 +285,13 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
-        // Initialize scrolling after chat screen is shown
+        // NUCLEAR SCROLLING INITIALIZATION
         setTimeout(() => {
+            this.applyNuclearScrollFixes();
             this.initializeScrollHandling();
             this.ensureScrollbarVisibility();
-        }, 500);
+            this.scrollToBottom(true);
+        }, 100);
     }
 
     populateUsersList(onlineUsers, allUsers) {
@@ -370,11 +471,11 @@ class ChatApp {
         
         messages.forEach(message => this.displayMessage(message));
         
-        // Scroll to bottom after loading history
+        // ULTRA RELIABLE SCROLLING AFTER HISTORY LOAD
         setTimeout(() => {
             this.scrollToBottom(true);
             this.ensureScrollbarVisibility();
-        }, 100);
+        }, 200);
     }
 
     sendMessage() {
@@ -496,7 +597,7 @@ class ChatApp {
         }
         
         messagesContainer.appendChild(welcomeMessage);
-        this.scrollToBottom();
+        this.scrollToBottom(true);
     }
 
     isMessageForCurrentConversation(message) {
@@ -570,7 +671,29 @@ class ChatApp {
     }
 }
 
-// Initialize app
+// NUCLEAR INITIALIZATION - FORCE SCROLLING TO WORK
 document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
+    // Prevent any browser interference
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    
+    const app = new ChatApp();
+    
+    // Additional nuclear scroll fixes
+    setTimeout(() => {
+        const messagesContainer = document.getElementById('messages-container');
+        if (messagesContainer) {
+            messagesContainer.style.overflowY = 'scroll';
+            messagesContainer.style.webkitOverflowScrolling = 'touch';
+        }
+    }, 1000);
 });
+
+// Prevent elastic scroll on entire page
+document.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+}, { passive: false });
+
+console.log('🚀 ULTRA POWERFUL SCROLLING INITIALIZED - READY FOR WHATSAPP-LEVEL PERFORMANCE!');
