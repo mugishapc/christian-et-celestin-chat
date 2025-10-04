@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp-like Chat</title>
+    <title>Christian Et Celestin Chat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
@@ -11,7 +11,7 @@
     <!-- Login Screen -->
     <div id="login-screen" class="screen active">
         <div class="login-container">
-            <h1>WhatsApp-like Chat</h1>
+            <h1>Christian Et Celestin Chat</h1>
             <div class="login-form">
                 <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                 <button id="login-btn">Join Chat</button>
@@ -22,76 +22,44 @@
 
     <!-- Chat Screen -->
     <div id="chat-screen" class="screen">
-        <!-- Desktop Header -->
-        <header class="chat-header desktop-header">
-            <h2>WhatsApp-like Chat</h2>
-            <div class="user-info">
-                <span id="current-user"></span>
-                <button id="logout-btn" class="logout-btn">Logout</button>
-            </div>
-        </header>
+        <div class="chat-container">
+            <header class="chat-header">
+                <h2>Christian Et Celestin Chat</h2>
+                <div class="user-info">
+                    <span id="current-user"></span>
+                    <button id="logout-btn">Logout</button>
+                </div>
+            </header>
 
-        <!-- Mobile Header -->
-        <header class="chat-header mobile-header">
-            <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
-            <div class="chat-info">
-                <span id="chat-with-user">Select User</span>
-            </div>
-            <button id="mobile-logout-btn" class="logout-btn">Logout</button>
-        </header>
-
-        <div class="chat-main">
-            <!-- Desktop Sidebar -->
-            <aside class="users-sidebar">
-                <div class="sidebar-header">
+            <div class="chat-main">
+                <aside class="users-sidebar">
                     <h3>Users</h3>
-                </div>
-                <ul id="users-list" class="users-list"></ul>
-            </aside>
+                    <ul id="users-list"></ul>
+                </aside>
 
-            <!-- Mobile Users Menu -->
-            <aside id="mobile-users-menu" class="mobile-users-menu">
-                <div class="mobile-menu-header">
-                    <h3>Users</h3>
-                    <button id="close-mobile-menu" class="close-menu-btn">×</button>
-                </div>
-                <ul id="mobile-users-list" class="users-list"></ul>
-            </aside>
-
-            <!-- Chat Area -->
-            <main class="chat-area">
-                <div class="messages-container" id="messages-container">
-                    <div class="welcome-message">
-                        <h3>Welcome to Chat!</h3>
-                        <p>Select a user from the list to start chatting.</p>
-                        <p>Scroll up to load older messages.</p>
+                <main class="chat-area">
+                    <div class="messages-container" id="messages-container">
+                        <div class="welcome-message">
+                            <p>Welcome to Christian Et Celestin Chat!</p>
+                            <p>Select a user to start chatting.</p>
+                        </div>
                     </div>
-                </div>
 
-                <div id="typing-indicator" class="typing-indicator"></div>
-
-                <!-- Desktop Input -->
-                <div class="message-input-area">
-                    <select id="user-select" class="user-select">
-                        <option value="">Select a user to chat with</option>
-                    </select>
-                    <div class="input-wrapper">
-                        <input type="text" id="message-input" class="message-input" placeholder="Type a message..." disabled>
-                        <button id="send-btn" class="send-btn" disabled>➤</button>
+                    <div id="typing-indicator" class="typing-indicator">
+                        <span id="typing-user"></span> is typing...
                     </div>
-                </div>
 
-                <!-- Mobile Input -->
-                <div class="mobile-input-area">
-                    <select id="mobile-user-select" class="mobile-user-select">
-                        <option value="">Select user</option>
-                    </select>
-                    <div class="mobile-input-wrapper">
-                        <input type="text" id="mobile-message-input" class="mobile-message-input" placeholder="Message..." disabled>
-                        <button id="mobile-send-btn" class="mobile-send-btn" disabled>➤</button>
+                    <div class="message-input-container">
+                        <div class="input-group">
+                            <select id="receiver-select">
+                                <option value="">Select a user to chat with</option>
+                            </select>
+                            <input type="text" id="message-input" placeholder="Type your message..." disabled>
+                            <button id="send-btn" disabled>Send</button>
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     </div>
 
