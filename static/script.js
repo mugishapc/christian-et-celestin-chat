@@ -8,9 +8,10 @@ class ChatApp {
         this.typingTimeout = null;
         this.isAtBottom = true;
         this.scrollPosition = 0;
+        this.isLoadingMessages = false;
         
         this.initializeEventListeners();
-        this.initializeScrollSystem();
+        this.initializeWhatsAppLikeScroll();
     }
 
     initializeEventListeners() {
@@ -20,28 +21,41 @@ class ChatApp {
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
+        document.getElementById('logout-btn-mobile').addEventListener('click', () => this.logout());
         document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
+        document.getElementById('mobile-send-btn').addEventListener('click', () => this.sendMessage());
+        
         document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendMessage();
+        });
+        
+        document.getElementById('mobile-message-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.sendMessage();
         });
 
         document.getElementById('message-input').addEventListener('input', () => this.handleTyping());
+        document.getElementById('mobile-message-input').addEventListener('input', () => this.handleTyping());
         
         document.getElementById('receiver-select').addEventListener('change', (e) => {
+            this.selectReceiver(e.target.value);
+        });
+        
+        document.getElementById('mobile-receiver-select').addEventListener('change', (e) => {
             this.selectReceiver(e.target.value);
         });
 
         // Mobile menu toggle
         document.getElementById('mobile-menu-btn').addEventListener('click', () => this.toggleMobileMenu());
+        document.getElementById('close-mobile-menu').addEventListener('click', () => this.closeMobileMenu());
     }
 
-    initializeScrollSystem() {
-        // Initialize scroll handling after DOM is ready
+    initializeWhatsAppLikeScroll() {
+        // WhatsApp-like scroll initialization
         setTimeout(() => {
             this.setupMessagesContainer();
         }, 100);
         
-        // Prevent body scroll on mobile
+        // Prevent body scroll completely like WhatsApp
         document.body.style.overflow = 'hidden';
         document.documentElement.style.overflow = 'hidden';
     }
@@ -50,19 +64,19 @@ class ChatApp {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        // FORCE SCROLLABLE CONTAINER
+        // WhatsApp-like scroll settings
         messagesContainer.style.overflowY = 'auto';
         messagesContainer.style.webkitOverflowScrolling = 'touch';
         messagesContainer.style.height = '100%';
         
-        // Add scroll event listener
-        messagesContainer.addEventListener('scroll', () => this.handleScroll());
+        // Add scroll event listener for WhatsApp-like behavior
+        messagesContainer.addEventListener('scroll', () => this.handleWhatsAppScroll());
         
-        // Create scroll to bottom button
+        // Create scroll to bottom button (like WhatsApp)
         this.createScrollToBottomButton();
         
-        // Ensure scrollbar is always visible
-        this.ensureScrollbarVisibility();
+        // Ensure perfect scrollbar visibility
+        this.ensurePerfectScrollbar();
     }
 
     createScrollToBottomButton() {
@@ -70,7 +84,7 @@ class ChatApp {
         const existingBtn = document.querySelector('.scroll-to-bottom');
         if (existingBtn) existingBtn.remove();
 
-        const scrollBtn = document.createElement('button');
+        const scrollBtn = document.createElement('div');
         scrollBtn.className = 'scroll-to-bottom';
         scrollBtn.innerHTML = '↓';
         scrollBtn.title = 'Scroll to bottom';
@@ -84,56 +98,72 @@ class ChatApp {
         this.scrollToBottomBtn = scrollBtn;
     }
 
-    handleScroll() {
+    handleWhatsAppScroll() {
         const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
+        if (!messagesContainer || this.isLoadingMessages) return;
 
-        const threshold = 100;
+        // Calculate if user is at bottom (like WhatsApp)
+        const threshold = 50; // WhatsApp uses small threshold
         const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
         const maxPosition = messagesContainer.scrollHeight;
         
         this.isAtBottom = (maxPosition - currentPosition) <= threshold;
         
-        // Show/hide scroll to bottom button
+        // Show/hide scroll to bottom button like WhatsApp
         if (this.scrollToBottomBtn) {
-            this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
+            if (this.isAtBottom) {
+                this.scrollToBottomBtn.style.display = 'none';
+            } else {
+                this.scrollToBottomBtn.style.display = 'flex';
+            }
+        }
+
+        // Load more messages when scrolling to top (like WhatsApp)
+        if (messagesContainer.scrollTop < 100 && !this.isLoadingMessages) {
+            // This is where you could implement loading older messages
+            // For now, we'll just maintain the current behavior
         }
     }
 
-    ensureScrollbarVisibility() {
+    ensurePerfectScrollbar() {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        // Force scrollbar by ensuring content
-        const forceScrollbar = () => {
-            messagesContainer.style.minHeight = 'calc(100% + 1px)';
+        // Force scrollbar to always be available
+        const ensureScroll = () => {
+            if (messagesContainer.scrollHeight <= messagesContainer.clientHeight) {
+                messagesContainer.style.minHeight = 'calc(100% + 1px)';
+            }
         };
 
-        forceScrollbar();
-        setTimeout(forceScrollbar, 500);
+        ensureScroll();
+        setTimeout(ensureScroll, 500);
     }
 
     scrollToBottom(force = false) {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
+        // WhatsApp-like smooth scrolling to bottom
         if (force || this.isAtBottom) {
-            // Multiple attempts for reliability
-            const scrollAttempts = [
-                () => messagesContainer.scrollTop = messagesContainer.scrollHeight,
-                () => messagesContainer.scrollTop = messagesContainer.scrollHeight,
-                () => {
+            const scroll = () => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Multiple smooth attempts like WhatsApp
+                setTimeout(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 50);
+                
+                setTimeout(() => {
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     this.isAtBottom = true;
                     if (this.scrollToBottomBtn) {
                         this.scrollToBottomBtn.style.display = 'none';
                     }
-                }
-            ];
+                }, 100);
+            };
 
-            scrollAttempts.forEach((attempt, index) => {
-                setTimeout(attempt, index * 50);
-            });
+            scroll();
         }
     }
 
@@ -160,7 +190,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+                <div class="loading-text">Connecting to WhatsApp-like Chat...</div>
             </div>
         `;
     }
@@ -192,13 +222,16 @@ class ChatApp {
         this.socket.on('new_message', (data) => {
             if (this.isMessageForCurrentConversation(data)) {
                 this.displayMessage(data);
-                this.scrollToBottom();
+                // Only auto-scroll if user is at bottom (like WhatsApp)
+                if (this.isAtBottom) {
+                    this.scrollToBottom();
+                }
             }
         });
 
         this.socket.on('conversation_history', (data) => {
             this.displayConversationHistory(data.messages);
-            this.scrollToBottom();
+            this.scrollToBottom(true);
         });
 
         this.socket.on('user_typing', (data) => {
@@ -214,7 +247,7 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
-        // Initialize scrolling system
+        // Initialize WhatsApp-like scrolling
         setTimeout(() => {
             this.setupMessagesContainer();
             this.scrollToBottom(true);
@@ -223,16 +256,20 @@ class ChatApp {
 
     populateUsersList(onlineUsers, allUsers) {
         const usersList = document.getElementById('users-list');
+        const mobileUsersList = document.getElementById('mobile-users-list');
         const receiverSelect = document.getElementById('receiver-select');
+        const mobileReceiverSelect = document.getElementById('mobile-receiver-select');
         
         usersList.innerHTML = '';
+        mobileUsersList.innerHTML = '';
         receiverSelect.innerHTML = '<option value="">Select a user to chat with</option>';
+        mobileReceiverSelect.innerHTML = '<option value="">Select user</option>';
         
-        // Add online users first
+        // Add online users first (like WhatsApp)
         if (onlineUsers && onlineUsers.length > 0) {
             onlineUsers.forEach(user => {
                 if (user !== this.currentUser) {
-                    this.addUserToUI(user, usersList, receiverSelect, true);
+                    this.addUserToUI(user, usersList, mobileUsersList, receiverSelect, mobileReceiverSelect, true);
                 }
             });
         }
@@ -241,111 +278,108 @@ class ChatApp {
         if (allUsers && allUsers.length > 0) {
             allUsers.forEach(user => {
                 if (user !== this.currentUser && (!onlineUsers || !onlineUsers.includes(user))) {
-                    this.addUserToUI(user, usersList, receiverSelect, false);
+                    this.addUserToUI(user, usersList, mobileUsersList, receiverSelect, mobileReceiverSelect, false);
                 }
             });
         }
-
-        // Update mobile users display
-        this.updateMobileUsersDisplay();
     }
 
-    addUserToUI(username, usersList, receiverSelect, isOnline) {
-        // Add to users list
+    addUserToUI(username, usersList, mobileUsersList, receiverSelect, mobileReceiverSelect, isOnline) {
+        // Create user item for desktop
         const li = document.createElement('li');
         li.className = 'user-item';
         li.innerHTML = `
-            <span class="user-status ${isOnline ? 'online' : 'offline'}"></span>
-            <span class="username">${username}</span>
-            <span class="user-badge">${isOnline ? 'Online' : 'Offline'}</span>
+            <div class="user-avatar">${username.charAt(0).toUpperCase()}</div>
+            <div class="user-info">
+                <div class="user-name">${username}</div>
+                <div class="user-status-text">${isOnline ? 'Online' : 'Offline'}</div>
+            </div>
+            <div class="user-time"></div>
         `;
         li.addEventListener('click', () => {
             this.selectReceiver(username);
             this.closeMobileMenu();
         });
         usersList.appendChild(li);
+
+        // Create user item for mobile
+        const mobileLi = li.cloneNode(true);
+        mobileLi.addEventListener('click', () => {
+            this.selectReceiver(username);
+            this.closeMobileMenu();
+        });
+        mobileUsersList.appendChild(mobileLi);
         
-        // Add to receiver select
+        // Add to receiver selects
         const option = document.createElement('option');
         option.value = username;
         option.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
         receiverSelect.appendChild(option);
-    }
 
-    updateMobileUsersDisplay() {
-        const mobileUsersList = document.getElementById('mobile-users-list');
-        if (!mobileUsersList) return;
-
-        const usersList = document.getElementById('users-list');
-        mobileUsersList.innerHTML = usersList.innerHTML;
+        const mobileOption = option.cloneNode(true);
+        mobileReceiverSelect.appendChild(mobileOption);
     }
 
     addUserToList(username, isOnline) {
         if (username === this.currentUser) return;
         
         const usersList = document.getElementById('users-list');
+        const mobileUsersList = document.getElementById('mobile-users-list');
         const receiverSelect = document.getElementById('receiver-select');
+        const mobileReceiverSelect = document.getElementById('mobile-receiver-select');
         
-        // Check if user already exists
-        const existingItems = usersList.querySelectorAll('.user-item');
+        // Update existing user or add new one
+        let userExists = this.updateExistingUser(username, isOnline, usersList);
+        this.updateExistingUser(username, isOnline, mobileUsersList);
+        
+        if (!userExists) {
+            this.addUserToUI(username, usersList, mobileUsersList, receiverSelect, mobileReceiverSelect, isOnline);
+        }
+        
+        // Update select options
+        this.updateSelectOption(username, isOnline, receiverSelect);
+        this.updateSelectOption(username, isOnline, mobileReceiverSelect);
+    }
+
+    updateExistingUser(username, isOnline, usersList) {
+        const userItems = usersList.querySelectorAll('.user-item');
         let userExists = false;
         
-        existingItems.forEach(item => {
-            const usernameSpan = item.querySelector('.username');
-            if (usernameSpan && usernameSpan.textContent === username) {
+        userItems.forEach(item => {
+            const nameDiv = item.querySelector('.user-name');
+            if (nameDiv && nameDiv.textContent === username) {
                 userExists = true;
-                // Update status
-                const status = item.querySelector('.user-status');
-                const badge = item.querySelector('.user-badge');
-                if (status && badge) {
-                    status.className = `user-status ${isOnline ? 'online' : 'offline'}`;
-                    badge.textContent = isOnline ? 'Online' : 'Offline';
+                const statusDiv = item.querySelector('.user-status-text');
+                if (statusDiv) {
+                    statusDiv.textContent = isOnline ? 'Online' : 'Offline';
+                    statusDiv.className = `user-status-text ${isOnline ? 'online' : 'offline'}`;
                 }
             }
         });
         
-        if (!userExists) {
-            this.addUserToUI(username, usersList, receiverSelect, isOnline);
-        }
-        
-        // Update select option
-        const options = Array.from(receiverSelect.options);
+        return userExists;
+    }
+
+    updateSelectOption(username, isOnline, selectElement) {
+        const options = Array.from(selectElement.options);
         const existingOption = options.find(opt => opt.value === username);
         if (existingOption) {
             existingOption.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
         }
-        
-        this.updateMobileUsersDisplay();
     }
 
     removeUserFromList(username) {
-        const usersList = document.getElementById('users-list');
-        const receiverSelect = document.getElementById('receiver-select');
+        this.updateExistingUser(username, false, document.getElementById('users-list'));
+        this.updateExistingUser(username, false, document.getElementById('mobile-users-list'));
+        this.updateSelectOption(username, false, document.getElementById('receiver-select'));
+        this.updateSelectOption(username, false, document.getElementById('mobile-receiver-select'));
         
-        // Remove from users list
-        const userItems = usersList.querySelectorAll('.user-item');
-        userItems.forEach(item => {
-            const usernameSpan = item.querySelector('.username');
-            if (usernameSpan && usernameSpan.textContent === username) {
-                item.remove();
-            }
-        });
-        
-        // Update to offline in select
-        const options = Array.from(receiverSelect.options);
-        const userOption = options.find(opt => opt.value === username);
-        if (userOption) {
-            userOption.textContent = `${username} (offline)`;
-        }
-        
-        // If the removed user was the selected receiver, clear selection
         if (this.selectedReceiver === username) {
             this.selectedReceiver = null;
             document.getElementById('receiver-select').value = '';
+            document.getElementById('mobile-receiver-select').value = '';
             this.showWelcomeMessage();
         }
-        
-        this.updateMobileUsersDisplay();
     }
 
     selectReceiver(username) {
@@ -354,47 +388,58 @@ class ChatApp {
         // Update UI
         document.getElementById('receiver-select').value = username;
         document.getElementById('mobile-receiver-select').value = username;
+        document.getElementById('chat-with-user').textContent = username;
         
         const messageInput = document.getElementById('message-input');
+        const mobileMessageInput = document.getElementById('mobile-message-input');
         const sendBtn = document.getElementById('send-btn');
+        const mobileSendBtn = document.getElementById('mobile-send-btn');
         
         if (username) {
             messageInput.disabled = false;
+            mobileMessageInput.disabled = false;
             sendBtn.disabled = false;
+            mobileSendBtn.disabled = false;
             messageInput.focus();
-            
-            // Update chat header for mobile
-            document.getElementById('chat-with-user').textContent = username;
             
             this.loadConversationHistory(username);
             this.updateUsersListActiveState(username);
         } else {
             messageInput.disabled = true;
+            mobileMessageInput.disabled = true;
             sendBtn.disabled = true;
+            mobileSendBtn.disabled = true;
             this.showWelcomeMessage();
         }
     }
 
     updateUsersListActiveState(activeUsername) {
-        const usersList = document.getElementById('users-list');
-        const items = usersList.querySelectorAll('.user-item');
+        const updateList = (usersList) => {
+            const items = usersList.querySelectorAll('.user-item');
+            items.forEach(item => {
+                const nameDiv = item.querySelector('.user-name');
+                if (nameDiv && nameDiv.textContent === activeUsername) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        };
         
-        items.forEach(item => {
-            const usernameSpan = item.querySelector('.username');
-            if (usernameSpan && usernameSpan.textContent === activeUsername) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
-        });
+        updateList(document.getElementById('users-list'));
+        updateList(document.getElementById('mobile-users-list'));
     }
 
     loadConversationHistory(otherUser) {
         if (this.socket && otherUser) {
+            this.isLoadingMessages = true;
             this.socket.emit('get_conversation', {
                 user1: this.currentUser,
                 user2: otherUser
             });
+            setTimeout(() => {
+                this.isLoadingMessages = false;
+            }, 1000);
         }
     }
 
@@ -407,7 +452,7 @@ class ChatApp {
             return;
         }
         
-        messages.forEach(message => this.displayMessage(message));
+        messages.forEach(message => this.displayMessage(message, true));
         
         setTimeout(() => {
             this.scrollToBottom(true);
@@ -415,8 +460,14 @@ class ChatApp {
     }
 
     sendMessage() {
-        const messageInput = document.getElementById('message-input');
-        const message = messageInput.value.trim();
+        let messageInput = document.getElementById('message-input');
+        let message = messageInput.value.trim();
+        
+        // Also check mobile input
+        if (!message) {
+            messageInput = document.getElementById('mobile-message-input');
+            message = messageInput.value.trim();
+        }
         
         if (!message || !this.selectedReceiver) return;
         
@@ -427,11 +478,12 @@ class ChatApp {
         });
         
         this.stopTyping();
-        messageInput.value = '';
-        messageInput.focus();
+        document.getElementById('message-input').value = '';
+        document.getElementById('mobile-message-input').value = '';
+        document.getElementById('message-input').focus();
     }
 
-    displayMessage(message) {
+    displayMessage(message, isHistory = false) {
         const messagesContainer = document.getElementById('messages-container');
         
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
@@ -448,15 +500,16 @@ class ChatApp {
         });
         
         messageElement.innerHTML = `
-            <div class="message-header">${message.sender}</div>
-            <div class="message-text">${this.escapeHtml(message.text)}</div>
-            <div class="message-time">${time}</div>
+            <div class="message-content">
+                <div class="message-text">${this.escapeHtml(message.text)}</div>
+                <div class="message-time">${time}</div>
+            </div>
         `;
         
         messagesContainer.appendChild(messageElement);
         
-        if (message.sender === this.currentUser || 
-            (message.sender === this.selectedReceiver && message.receiver === this.currentUser)) {
+        // Only auto-scroll for new messages or if user is at bottom
+        if (!isHistory && (message.sender === this.currentUser || this.isAtBottom)) {
             this.scrollToBottom(true);
         }
     }
@@ -499,7 +552,7 @@ class ChatApp {
         
         if (isTyping && sender === this.selectedReceiver) {
             typingUser.textContent = sender;
-            typingIndicator.style.display = 'block';
+            typingIndicator.style.display = 'flex';
         } else {
             typingIndicator.style.display = 'none';
         }
@@ -513,10 +566,14 @@ class ChatApp {
         welcomeMessage.className = 'welcome-message';
         
         if (customMessage) {
-            welcomeMessage.innerHTML = `<p>${customMessage}</p>`;
+            welcomeMessage.innerHTML = `
+                <div class="welcome-icon">💬</div>
+                <p>${customMessage}</p>
+            `;
         } else {
             welcomeMessage.innerHTML = `
-                <p>Welcome to Christian Et Celestin Chat!</p>
+                <div class="welcome-icon">💬</div>
+                <p>Welcome to WhatsApp-like Chat!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -535,7 +592,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Christian Et Celestin Chat</h1>
+                <h1>WhatsApp-like Chat</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -576,7 +633,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Christian Et Celestin Chat</h1>
+                <h1>WhatsApp-like Chat</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -602,5 +659,5 @@ class ChatApp {
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
+    window.app = new ChatApp();
 });
