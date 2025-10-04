@@ -13,6 +13,7 @@ class ChatApp {
         this.MESSAGES_PER_LOAD = 20;
         this.allMessages = [];
         this.loadedMessageIds = new Set();
+        this.oldestMessageId = null;
         
         this.initializeEventListeners();
         this.initializeWhatsAppLikeScroll();
@@ -100,7 +101,7 @@ class ChatApp {
         if (!messagesContainer || this.isLoadingMessages) return;
 
         // Calculate if user is at bottom
-        const threshold = 50;
+        const threshold = 100;
         const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
         const maxPosition = messagesContainer.scrollHeight;
         
@@ -123,12 +124,14 @@ class ChatApp {
         this.isLoadingMessages = true;
         this.showLoadingOldMessages();
 
-        // Simulate loading delay for better UX
+        // Use the oldest message ID for pagination
+        const beforeId = this.oldestMessageId;
+
         setTimeout(() => {
             this.socket.emit('load_older_messages', {
                 user1: this.currentUser,
                 user2: this.selectedReceiver,
-                offset: this.messageOffset,
+                before_id: beforeId,
                 limit: this.MESSAGES_PER_LOAD
             });
         }, 300);
@@ -414,6 +417,7 @@ class ChatApp {
         this.hasMoreMessages = true;
         this.allMessages = [];
         this.loadedMessageIds.clear();
+        this.oldestMessageId = null;
         
         this.selectedReceiver = username;
         
@@ -486,6 +490,11 @@ class ChatApp {
         this.allMessages = messages;
         messages.forEach(msg => this.loadedMessageIds.add(msg.id));
         
+        // Update oldest message ID for pagination
+        if (messages.length > 0) {
+            this.oldestMessageId = Math.min(...messages.map(msg => msg.id));
+        }
+        
         // Check if we have more messages to load
         this.hasMoreMessages = messages.length === this.MESSAGES_PER_LOAD;
         this.messageOffset = messages.length;
@@ -504,6 +513,7 @@ class ChatApp {
         if (messages.length === 0) {
             this.hasMoreMessages = false;
             this.isLoadingMessages = false;
+            this.showNoMoreMessages();
             return;
         }
         
@@ -518,6 +528,9 @@ class ChatApp {
             // Add to the beginning of all messages
             this.allMessages = [...newMessages, ...this.allMessages];
             newMessages.forEach(msg => this.loadedMessageIds.add(msg.id));
+            
+            // Update oldest message ID
+            this.oldestMessageId = Math.min(...newMessages.map(msg => msg.id));
             
             // Display messages at the top
             newMessages.reverse().forEach(message => {
@@ -738,6 +751,7 @@ class ChatApp {
         this.hasMoreMessages = true;
         this.allMessages = [];
         this.loadedMessageIds.clear();
+        this.oldestMessageId = null;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');

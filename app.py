@@ -64,6 +64,12 @@ def init_database():
                     ON messages (sender, receiver, timestamp)
                 """)
                 
+                # Create index for infinite scrolling
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_messages_timestamp 
+                    ON messages (timestamp DESC)
+                """)
+                
                 conn.commit()
                 logger.info("Database tables initialized successfully")
         except Exception as e:
@@ -278,11 +284,11 @@ def handle_get_conversation(data):
 def handle_load_older_messages(data):
     user1 = data['user1']
     user2 = data['user2']
-    offset = data.get('offset', 0)
+    before_id = data.get('before_id')
     limit = data.get('limit', 20)
     
     # Get older messages from database
-    older_messages = get_older_messages_from_db(user1, user2, offset, limit)
+    older_messages = get_older_messages_from_db(user1, user2, before_id, limit)
     has_more = len(older_messages) == limit
     
     emit('older_messages_loaded', {
@@ -323,19 +329,31 @@ def get_conversation_from_db(user1, user2, limit=50):
             conn.close()
     return []
 
-def get_older_messages_from_db(user1, user2, offset, limit=20):
+def get_older_messages_from_db(user1, user2, before_id, limit=20):
     """Get older messages for infinite scrolling"""
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
-                    SELECT id, sender, receiver, message_text as text, timestamp
-                    FROM messages 
-                    WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
-                    ORDER BY timestamp DESC
-                    LIMIT %s OFFSET %s
-                """, (user1, user2, user2, user1, limit, offset))
+                if before_id:
+                    # Get messages older than the specified message ID
+                    cur.execute("""
+                        SELECT id, sender, receiver, message_text as text, timestamp
+                        FROM messages 
+                        WHERE ((sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s))
+                        AND id < %s
+                        ORDER BY timestamp DESC
+                        LIMIT %s
+                    """, (user1, user2, user2, user1, before_id, limit))
+                else:
+                    # Fallback to offset-based if no before_id provided
+                    cur.execute("""
+                        SELECT id, sender, receiver, message_text as text, timestamp
+                        FROM messages 
+                        WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
+                        ORDER BY timestamp DESC
+                        LIMIT %s
+                    """, (user1, user2, user2, user1, limit))
                 
                 messages = cur.fetchall()
                 # Convert to list of dictionaries and reverse to get chronological order
@@ -370,7 +388,7 @@ def handle_typing(data):
         }, room=active_users[receiver])
 
 if __name__ == '__main__':
-    print("🚀 Starting Christian Et Celestin Chat Server...")
+    print("🚀 Starting WhatsApp-like Chat Server...")
     print("📍 Access at: http://localhost:5000")
     print("🗄️  Database: PostgreSQL with Neon")
     print("📜 Infinite scrolling: ENABLED - Users can scroll up to see old messages")
