@@ -8,65 +8,57 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Login Screen -->
-        <div id="login-screen" class="screen active">
-            <div class="login-container">
-                <h1>Christian Et Celestin Chat</h1>
-                <div class="login-form">
-                    <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
-                    <button id="login-btn">Join Chat</button>
-                    <div id="login-error" class="error-message"></div>
-                </div>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <h1>Christian Et Celestin Chat</h1>
+            <div class="login-form">
+                <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
+                <button id="login-btn">Join Chat</button>
+                <div id="login-error" class="error-message"></div>
             </div>
         </div>
+    </div>
 
-        <!-- Chat Screen -->
-        <div id="chat-screen" class="screen">
-            <div class="chat-container">
-                <!-- Header -->
-                <header class="chat-header">
-                    <h2>Christian Et Celestin Chat</h2>
-                    <div class="user-info">
-                        <span id="current-user"></span>
-                        <button id="logout-btn">Logout</button>
-                    </div>
-                </header>
-
-                <div class="chat-main">
-                    <!-- Sidebar with Users -->
-                    <aside class="users-sidebar">
-                        <h3>Online Users</h3>
-                        <ul id="users-list"></ul>
-                    </aside>
-
-                    <!-- Chat Area -->
-                    <main class="chat-area">
-                        <!-- Messages Container -->
-                        <div class="messages-container" id="messages-container">
-                            <div class="welcome-message">
-                                <p>Welcome to Christian Et Celestin Chat!</p>
-                                <p>Select a user to start chatting.</p>
-                            </div>
-                        </div>
-
-                        <!-- Typing Indicator -->
-                        <div id="typing-indicator" class="typing-indicator">
-                            <span id="typing-user"></span> is typing...
-                        </div>
-
-                        <!-- Message Input -->
-                        <div class="message-input-container">
-                            <div class="input-group">
-                                <select id="receiver-select">
-                                    <option value="">Select a user to chat with</option>
-                                </select>
-                                <input type="text" id="message-input" placeholder="Type your message..." disabled>
-                                <button id="send-btn" disabled>Send</button>
-                            </div>
-                        </div>
-                    </main>
+    <!-- Chat Screen -->
+    <div id="chat-screen" class="screen">
+        <div class="chat-container">
+            <header class="chat-header">
+                <h2>Christian Et Celestin Chat</h2>
+                <div class="user-info">
+                    <span id="current-user"></span>
+                    <button id="logout-btn">Logout</button>
                 </div>
+            </header>
+
+            <div class="chat-main">
+                <aside class="users-sidebar">
+                    <h3>Online Users</h3>
+                    <ul id="users-list"></ul>
+                </aside>
+
+                <main class="chat-area">
+                    <div class="messages-container" id="messages-container">
+                        <div class="welcome-message">
+                            <p>Welcome to Christian Et Celestin Chat!</p>
+                            <p>Select a user to start chatting.</p>
+                        </div>
+                    </div>
+
+                    <div id="typing-indicator" class="typing-indicator">
+                        <span id="typing-user"></span> is typing...
+                    </div>
+
+                    <div class="message-input-container">
+                        <div class="input-group">
+                            <select id="receiver-select">
+                                <option value="">Select a user to chat with</option>
+                            </select>
+                            <input type="text" id="message-input" placeholder="Type your message..." disabled>
+                            <button id="send-btn" disabled>Send</button>
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
     </div>

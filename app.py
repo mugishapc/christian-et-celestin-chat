@@ -14,7 +14,6 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 # In-memory storage
 users = {}
 active_users = {}
-# Store messages per conversation
 conversations = {}
 
 @app.route('/')
@@ -57,10 +56,10 @@ def handle_login(data):
         'joined_at': datetime.now().isoformat()
     }
     
-    # Get only other users (exclude current user)
+    # Get only other users
     other_users = [user for user in active_users.keys() if user != username]
     
-    # Send user list to the new user (NO MESSAGES - for privacy)
+    # Send user list to the new user
     emit('login_success', {
         'username': username,
         'users': other_users
@@ -78,7 +77,7 @@ def handle_send_message(data):
     message_text = data['message']
     timestamp = datetime.now().isoformat()
     
-    # Create conversation key (sorted to ensure consistency)
+    # Create conversation key
     conversation_key = tuple(sorted([sender, receiver]))
     
     # Initialize conversation if it doesn't exist
@@ -136,8 +135,6 @@ def handle_typing(data):
         }, room=active_users[receiver])
 
 if __name__ == '__main__':
-    print("🚀 Christian Et Celestin Chat Server Starting...")
-    print("🔒 PRIVATE MESSAGES: Conversations are only visible to participants")
-    print("📱 MOBILE OPTIMIZED: Responsive design for all devices")
-    print("🌐 Server running at: http://localhost:5000")
+    print("🚀 Starting Christian Et Celestin Chat Server...")
+    print("📍 Access at: http://localhost:5000")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
