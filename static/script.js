@@ -4,6 +4,7 @@ class ChatApp {
         this.currentUser = null;
         this.selectedReceiver = null;
         this.typingTimer = null;
+        this.currentConversation = null;
         
         this.initializeEventListeners();
     }
@@ -54,12 +55,17 @@ class ChatApp {
         this.socket = io();
 
         this.socket.on('connect', () => {
+            console.log('Connected to server');
             this.socket.emit('login', { username });
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
         });
 
         this.socket.on('login_success', (data) => {
             this.currentUser = data.username;
-            this.showChatScreen(data.users, data.messages);
+            this.showChatScreen(data.users);
         });
 
         this.socket.on('login_failed', (data) => {
@@ -77,7 +83,17 @@ class ChatApp {
         });
 
         this.socket.on('new_message', (data) => {
-            this.displayMessage(data);
+            // Only display if message is for current conversation
+            if (this.isMessageForCurrentConversation(data)) {
+                this.displayMessage(data);
+            }
+        });
+
+        this.socket.on('conversation_history', (data) => {
+            if (data.user1 === this.currentUser && data.user2 === this.selectedReceiver ||
+                data.user2 === this.currentUser && data.user1 === this.selectedReceiver) {
+                this.displayConversationHistory(data.messages);
+            }
         });
 
         this.socket.on('user_typing', (data) => {
@@ -93,14 +109,14 @@ class ChatApp {
         }, 3000);
     }
 
-    showChatScreen(users, messages) {
+    showChatScreen(users) {
         document.getElementById('login-screen').classList.remove('active');
         document.getElementById('chat-screen').classList.add('active');
         
         document.getElementById('current-user').textContent = this.currentUser;
         
         this.populateUsersList(users);
-        this.displayPreviousMessages(messages);
+        this.showWelcomeMessage();
     }
 
     populateUsersList(users) {
@@ -176,6 +192,7 @@ class ChatApp {
 
     selectReceiver(username) {
         this.selectedReceiver = username;
+        this.currentConversation = username ? [this.currentUser, username].sort().join('_') : null;
         
         // Update UI
         document.getElementById('receiver-select').value = username;
@@ -198,13 +215,45 @@ class ChatApp {
             messageInput.disabled = false;
             sendBtn.disabled = false;
             messageInput.focus();
+            
+            // Load conversation history for these two users only
+            this.loadConversationHistory(username);
         } else {
             messageInput.disabled = true;
             sendBtn.disabled = true;
+            this.showWelcomeMessage();
         }
         
         // Clear typing indicator
         this.showTypingIndicator('', false);
+    }
+
+    loadConversationHistory(otherUser) {
+        if (this.socket && otherUser) {
+            this.socket.emit('get_conversation', {
+                user1: this.currentUser,
+                user2: otherUser
+            });
+        }
+    }
+
+    displayConversationHistory(messages) {
+        const messagesContainer = document.getElementById('messages-container');
+        messagesContainer.innerHTML = '';
+        
+        if (messages.length === 0) {
+            this.showWelcomeMessage('Start a new conversation with ' + this.selectedReceiver);
+            return;
+        }
+        
+        messages.forEach(message => this.displayMessage(message));
+    }
+
+    isMessageForCurrentConversation(message) {
+        if (!this.selectedReceiver) return false;
+        
+        return (message.sender === this.currentUser && message.receiver === this.selectedReceiver) ||
+               (message.sender === this.selectedReceiver && message.receiver === this.currentUser);
     }
 
     sendMessage() {
@@ -236,7 +285,11 @@ class ChatApp {
         const messageElement = document.createElement('div');
         messageElement.className = `message ${message.sender === this.currentUser ? 'sent' : 'received'}`;
         
-        const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = new Date(message.timestamp).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
         
         messageElement.innerHTML = `
             <div class="message-header">${message.sender}</div>
@@ -248,22 +301,26 @@ class ChatApp {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    displayPreviousMessages(messages) {
+    showWelcomeMessage(customMessage = null) {
         const messagesContainer = document.getElementById('messages-container');
         messagesContainer.innerHTML = '';
         
-        if (messages.length === 0) {
-            const welcomeMessage = document.createElement('div');
-            welcomeMessage.className = 'welcome-message';
+        const welcomeMessage = document.createElement('div');
+        welcomeMessage.className = 'welcome-message';
+        
+        if (customMessage) {
+            welcomeMessage.innerHTML = `
+                <p>${customMessage}</p>
+                <p>Your conversation is private and secure 🔒</p>
+            `;
+        } else {
             welcomeMessage.innerHTML = `
                 <p>Welcome to Christian Et Celestin Chat!</p>
-                <p>Select a user to start chatting.</p>
+                <p>Select a user to start a private conversation 🔒</p>
             `;
-            messagesContainer.appendChild(welcomeMessage);
-            return;
         }
         
-        messages.forEach(message => this.displayMessage(message));
+        messagesContainer.appendChild(welcomeMessage);
     }
 
     showSystemMessage(text) {
@@ -278,6 +335,8 @@ class ChatApp {
             background: transparent;
             border: none;
             max-width: 100%;
+            margin: 1rem 0;
+            font-size: 0.9rem;
         `;
         systemMessage.textContent = text;
         
@@ -340,6 +399,7 @@ class ChatApp {
         
         this.currentUser = null;
         this.selectedReceiver = null;
+        this.currentConversation = null;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
@@ -357,4 +417,7 @@ class ChatApp {
 // Initialize the chat app when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     new ChatApp();
+    
+    // Prevent zoom on mobile input focus
+    document.addEventListener('touchstart', function() {}, {passive: true});
 });

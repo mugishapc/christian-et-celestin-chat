@@ -1,4 +1,5 @@
 import eventlet
+eventlet.monkey_patch()
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -8,12 +9,13 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'd29c234ca310aa6990092d4b6cd4c4854585c51e1f73bf4de510adca03f5bc4e'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# In-memory storage (replace with database in production)
+# In-memory storage
 users = {}
-messages = []
 active_users = {}
+# Store messages per conversation
+conversations = {}
 
 @app.route('/')
 def index():
@@ -55,11 +57,13 @@ def handle_login(data):
         'joined_at': datetime.now().isoformat()
     }
     
-    # Send user list and previous messages to the new user
+    # Get only other users (exclude current user)
+    other_users = [user for user in active_users.keys() if user != username]
+    
+    # Send user list to the new user (NO MESSAGES - for privacy)
     emit('login_success', {
         'username': username,
-        'users': list(active_users.keys()),
-        'messages': messages[-50:]  # Last 50 messages
+        'users': other_users
     })
     
     # Notify all users about the new user
@@ -74,24 +78,49 @@ def handle_send_message(data):
     message_text = data['message']
     timestamp = datetime.now().isoformat()
     
+    # Create conversation key (sorted to ensure consistency)
+    conversation_key = tuple(sorted([sender, receiver]))
+    
+    # Initialize conversation if it doesn't exist
+    if conversation_key not in conversations:
+        conversations[conversation_key] = []
+    
     message = {
-        'id': len(messages) + 1,
+        'id': len(conversations[conversation_key]) + 1,
         'sender': sender,
         'receiver': receiver,
         'text': message_text,
         'timestamp': timestamp
     }
     
-    messages.append(message)
+    # Store message in conversation
+    conversations[conversation_key].append(message)
     
-    # Send to sender
-    emit('new_message', message, room=active_users[sender])
+    # Send only to the two participants
+    if sender in active_users:
+        emit('new_message', message, room=active_users[sender])
     
-    # Send to receiver if online
     if receiver in active_users:
         emit('new_message', message, room=active_users[receiver])
     
-    print(f"Message sent from {sender} to {receiver}: {message_text}")
+    print(f"Private message from {sender} to {receiver}: {message_text}")
+
+@socketio.on('get_conversation')
+def handle_get_conversation(data):
+    user1 = data['user1']
+    user2 = data['user2']
+    
+    # Create conversation key
+    conversation_key = tuple(sorted([user1, user2]))
+    
+    # Get messages for this conversation only
+    conversation_messages = conversations.get(conversation_key, [])
+    
+    emit('conversation_history', {
+        'user1': user1,
+        'user2': user2,
+        'messages': conversation_messages
+    })
 
 @socketio.on('typing')
 def handle_typing(data):
@@ -99,6 +128,7 @@ def handle_typing(data):
     receiver = data['receiver']
     is_typing = data['is_typing']
     
+    # Only send typing indicator to the intended receiver
     if receiver in active_users:
         emit('user_typing', {
             'sender': sender,
@@ -106,4 +136,8 @@ def handle_typing(data):
         }, room=active_users[receiver])
 
 if __name__ == '__main__':
+    print("🚀 Christian Et Celestin Chat Server Starting...")
+    print("🔒 PRIVATE MESSAGES: Conversations are only visible to participants")
+    print("📱 MOBILE OPTIMIZED: Responsive design for all devices")
+    print("🌐 Server running at: http://localhost:5000")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
