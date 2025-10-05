@@ -65,7 +65,8 @@ class ChatApp {
 
         // Mobile back button
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('back-to-users')) {
+            if (e.target.classList.contains('back-to-users') || 
+                e.target.closest('.back-to-users')) {
                 this.showUsersListOnMobile();
             }
         });
@@ -418,7 +419,6 @@ class ChatApp {
         if (username) {
             messageInput.disabled = false;
             sendBtn.disabled = false;
-            messageInput.focus();
             
             this.loadConversationHistory(username);
             this.updateUsersListActiveState(username);
@@ -426,6 +426,21 @@ class ChatApp {
             // On mobile, switch to chat view
             if (this.isMobile) {
                 this.showChatOnMobile();
+                
+                // Double ensure input is enabled and visible
+                setTimeout(() => {
+                    if (messageInput) {
+                        messageInput.disabled = false;
+                        messageInput.focus();
+                    }
+                    if (sendBtn) {
+                        sendBtn.disabled = false;
+                    }
+                    this.scrollToBottom(true);
+                }, 500);
+            } else {
+                // On desktop, focus input
+                messageInput.focus();
             }
         } else {
             messageInput.disabled = true;
@@ -443,21 +458,46 @@ class ChatApp {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
+        const receiverSelect = document.getElementById('receiver-select');
         
         if (usersSidebar && chatArea && backButton) {
-            usersSidebar.style.display = 'none';
-            chatArea.style.display = 'flex';
+            // Hide users sidebar
+            usersSidebar.classList.add('mobile-hidden');
+            
+            // Show chat area
+            chatArea.classList.add('mobile-active');
+            
+            // Show back button
             backButton.style.display = 'block';
+            
+            // Hide receiver select on mobile (we use back button instead)
+            if (receiverSelect) {
+                receiverSelect.style.display = 'none';
+            }
         }
         
         this.mobileChatActive = true;
+        document.body.classList.add('mobile-chat-active');
         
-        // Focus on message input
+        // Focus on message input and ensure it's visible
         setTimeout(() => {
             const messageInput = document.getElementById('message-input');
+            const messageInputContainer = document.querySelector('.message-input-container');
+            
             if (messageInput) {
                 messageInput.focus();
+                messageInput.disabled = false;
             }
+            
+            // Ensure input container is visible
+            if (messageInputContainer) {
+                messageInputContainer.style.display = 'flex';
+                messageInputContainer.style.visibility = 'visible';
+                messageInputContainer.style.opacity = '1';
+            }
+            
+            // Scroll to bottom to see the input area
+            this.scrollToBottom(true);
         }, 300);
     }
 
@@ -465,16 +505,31 @@ class ChatApp {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
+        const receiverSelect = document.getElementById('receiver-select');
         
         if (usersSidebar && chatArea && backButton) {
-            usersSidebar.style.display = 'block';
-            chatArea.style.display = 'none';
+            // Show users sidebar
+            usersSidebar.classList.remove('mobile-hidden');
+            
+            // Hide chat area
+            chatArea.classList.remove('mobile-active');
+            
+            // Hide back button
             backButton.style.display = 'none';
+            
+            // Show receiver select
+            if (receiverSelect) {
+                receiverSelect.style.display = 'block';
+            }
         }
         
         this.mobileChatActive = false;
+        document.body.classList.remove('mobile-chat-active');
         this.selectedReceiver = null;
-        document.getElementById('receiver-select').value = '';
+        
+        if (document.getElementById('receiver-select')) {
+            document.getElementById('receiver-select').value = '';
+        }
         this.showWelcomeMessage();
     }
 
