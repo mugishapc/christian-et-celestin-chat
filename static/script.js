@@ -17,8 +17,20 @@ class ChatApp {
         this.allMessages = [];
         this.isLoadingHistory = false;
         
+        // Mobile state
+        this.isMobile = window.innerWidth <= 768;
+        this.mobileChatActive = false;
+        
         this.initializeEventListeners();
         this.initializeScrollSystem();
+        this.setupMobileDetection();
+    }
+
+    setupMobileDetection() {
+        this.isMobile = window.innerWidth <= 768;
+        window.addEventListener('resize', () => {
+            this.isMobile = window.innerWidth <= 768;
+        });
     }
 
     initializeEventListeners() {
@@ -48,6 +60,13 @@ class ChatApp {
             if (e.target.classList.contains('admin-chat-btn')) {
                 const username = e.target.dataset.username;
                 this.startAdminChat(username);
+            }
+        });
+
+        // Mobile back button
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('back-to-users')) {
+                this.showUsersListOnMobile();
             }
         });
     }
@@ -180,7 +199,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching MugiChat...</div>
+                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
             </div>
         `;
     }
@@ -244,10 +263,28 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
+        // Add back button for mobile
+        if (this.isMobile) {
+            this.addMobileBackButton();
+        }
+        
         setTimeout(() => {
             this.initializeScrollSystem();
             this.scrollToBottom(true);
         }, 1000);
+    }
+
+    addMobileBackButton() {
+        const chatHeader = document.querySelector('.chat-header');
+        const existingBackBtn = chatHeader.querySelector('.back-to-users');
+        if (!existingBackBtn) {
+            const backBtn = document.createElement('button');
+            backBtn.className = 'back-to-users';
+            backBtn.innerHTML = '←';
+            backBtn.title = 'Back to users';
+            backBtn.style.display = 'none';
+            chatHeader.insertBefore(backBtn, chatHeader.firstChild);
+        }
     }
 
     populateUsersList(onlineUsers, allUsers) {
@@ -358,6 +395,9 @@ class ChatApp {
             this.selectedReceiver = null;
             document.getElementById('receiver-select').value = '';
             this.showWelcomeMessage();
+            if (this.isMobile) {
+                this.showUsersListOnMobile();
+            }
         }
     }
 
@@ -382,11 +422,60 @@ class ChatApp {
             
             this.loadConversationHistory(username);
             this.updateUsersListActiveState(username);
+            
+            // On mobile, switch to chat view
+            if (this.isMobile) {
+                this.showChatOnMobile();
+            }
         } else {
             messageInput.disabled = true;
             sendBtn.disabled = true;
             this.showWelcomeMessage();
+            
+            // On mobile, switch back to users list
+            if (this.isMobile) {
+                this.showUsersListOnMobile();
+            }
         }
+    }
+
+    showChatOnMobile() {
+        const usersSidebar = document.querySelector('.users-sidebar');
+        const chatArea = document.querySelector('.chat-area');
+        const backButton = document.querySelector('.back-to-users');
+        
+        if (usersSidebar && chatArea && backButton) {
+            usersSidebar.style.display = 'none';
+            chatArea.style.display = 'flex';
+            backButton.style.display = 'block';
+        }
+        
+        this.mobileChatActive = true;
+        
+        // Focus on message input
+        setTimeout(() => {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.focus();
+            }
+        }, 300);
+    }
+
+    showUsersListOnMobile() {
+        const usersSidebar = document.querySelector('.users-sidebar');
+        const chatArea = document.querySelector('.chat-area');
+        const backButton = document.querySelector('.back-to-users');
+        
+        if (usersSidebar && chatArea && backButton) {
+            usersSidebar.style.display = 'block';
+            chatArea.style.display = 'none';
+            backButton.style.display = 'none';
+        }
+        
+        this.mobileChatActive = false;
+        this.selectedReceiver = null;
+        document.getElementById('receiver-select').value = '';
+        this.showWelcomeMessage();
     }
 
     updateUsersListActiveState(activeUsername) {
@@ -612,7 +701,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to MugiChat!</p>
+                <p>Welcome to Christian Et Celestin Chat!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -673,6 +762,11 @@ class ChatApp {
         this.updateUsersListActiveState(username);
         
         this.showNotification(`Now chatting as admin with ${username}`);
+        
+        // On mobile, switch to chat view
+        if (this.isMobile) {
+            this.showChatOnMobile();
+        }
     }
 
     showNotification(message, type = 'success') {
@@ -728,6 +822,7 @@ class ChatApp {
         this.currentUser = null;
         this.selectedReceiver = null;
         this.isAdmin = false;
+        this.mobileChatActive = false;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
