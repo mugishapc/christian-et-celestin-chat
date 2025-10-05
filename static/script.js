@@ -199,7 +199,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+                <div class="loading-text">Launching MugiChat...</div>
             </div>
         `;
     }
@@ -701,7 +701,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to Christian Et Celestin Chat!</p>
+                <p>Welcome to MugiChat!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -797,7 +797,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Christian Et Celestin Chat</h1>
+                <h1>MugiChat</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -830,7 +830,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Christian Et Celestin Chat</h1>
+                <h1>MugiChat</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -856,7 +856,7 @@ class ChatApp {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Starting Christian Et Celestin Chat App...');
+    console.log('🚀 Starting MugiChat App...');
     const app = new ChatApp();
     
     setTimeout(() => {

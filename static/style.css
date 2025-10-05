@@ -748,3 +748,215 @@ html, body {
         display: block;
     }
 }
+
+/* MOBILE RESPONSIVE - FIXED LAYOUT */
+@media (max-width: 768px) {
+    .chat-main {
+        flex-direction: column;
+        height: calc(100vh - 70px);
+        position: relative;
+    }
+    
+    /* Users sidebar - Horizontal scroll on mobile */
+    .users-sidebar {
+        width: 100%;
+        height: 140px;
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 20;
+        -webkit-overflow-scrolling: touch;
+        display: block; /* Ensure it's visible by default */
+    }
+    
+    .users-sidebar-header {
+        padding: 0.75rem;
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+    }
+    
+    #users-list {
+        display: flex;
+        overflow-x: auto;
+        gap: 0.5rem;
+        -webkit-overflow-scrolling: touch;
+        height: 100px;
+        align-items: center;
+        padding: 0.5rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    
+    #users-list::-webkit-scrollbar {
+        display: none;
+    }
+    
+    #users-list li {
+        flex: 0 0 auto;
+        min-width: 140px;
+        margin-bottom: 0;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 0.75rem;
+        position: relative;
+    }
+    
+    .admin-actions {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        gap: 0.25rem;
+    }
+    
+    .admin-chat-btn, .delete-user-btn {
+        font-size: 0.8rem;
+        padding: 0.2rem;
+    }
+    
+    /* Chat area - Takes full screen when active */
+    .chat-area {
+        flex: 1;
+        min-height: 0;
+        display: none !important; /* Hidden by default on mobile */
+        flex-direction: column !important;
+        position: relative;
+        height: 100% !important;
+        background: #e5ddd5;
+    }
+    
+    /* Show chat area when mobile chat is active */
+    .chat-area.mobile-active {
+        display: flex !important;
+    }
+    
+    /* Hide users sidebar when chat is active */
+    .users-sidebar.mobile-hidden {
+        display: none !important;
+    }
+    
+    .messages-container {
+        flex: 1;
+        padding: 0.5rem;
+        -webkit-overflow-scrolling: touch !important;
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 0;
+        margin-bottom: 0;
+    }
+    
+    /* Input area - Always visible at bottom */
+    .message-input-container {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #f0f0f0;
+        border-top: 1px solid #ddd;
+        padding: 0.75rem;
+        z-index: 100;
+        display: flex !important;
+        visibility: visible !important;
+    }
+    
+    .input-group {
+        flex-direction: row;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    #receiver-select {
+        flex: 0 0 120px;
+        font-size: 0.8rem;
+        padding: 0.6rem;
+        display: none; /* Hide on mobile as we have the back button */
+    }
+    
+    #message-input {
+        flex: 1;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+        min-height: 44px; /* Better touch target */
+    }
+    
+    #send-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        min-height: 44px; /* Better touch target */
+        flex-shrink: 0;
+    }
+    
+    .message {
+        max-width: 85%;
+    }
+    
+    .scroll-to-bottom {
+        bottom: 70px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .login-container {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    /* Back button for mobile */
+    .back-to-users {
+        display: block;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+        cursor: pointer;
+        padding: 0.5rem;
+    }
+    
+    /* Ensure no overflow hidden on body that would hide input */
+    body.mobile-chat-active {
+        overflow: hidden;
+    }
+}
+
+/* Mobile landscape optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+    .users-sidebar {
+        height: 100px;
+    }
+    
+    #users-list {
+        height: 70px;
+    }
+    
+    #users-list li {
+        height: 60px;
+        min-width: 120px;
+        padding: 0.5rem;
+    }
+    
+    .message-input-container {
+        padding: 0.5rem;
+    }
+    
+    /* Ensure input is visible in landscape */
+    .chat-area.mobile-active {
+        height: 100vh !important;
+    }
+}
+
+/* Ensure input area is always visible and properly positioned */
+.message-input-container {
+    background: #f0f0f0 !important;
+    border-top: 1px solid #ddd !important;
+    position: relative !important;
+}
