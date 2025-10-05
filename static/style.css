@@ -768,3 +768,46 @@ html, body {
     flex-direction: column !important;
     height: 100% !important;
 }
+
+/* CRITICAL FIX: Force input area to be always visible */
+.message-input-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #f0f0f0 !important;
+    border-top: 1px solid #ddd !important;
+    padding: 0.75rem !important;
+    z-index: 1000 !important;
+}
+
+/* Ensure input elements are always visible */
+#message-input {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#send-btn {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Mobile input area guarantee */
+@media (max-width: 768px) {
+    .message-input-container {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+    }
+    
+    .chat-area.mobile-active .message-input-container {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}

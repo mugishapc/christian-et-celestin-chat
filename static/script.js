@@ -31,30 +31,58 @@ class ChatApp {
         this.isMobile = window.innerWidth <= 768;
         window.addEventListener('resize', () => {
             this.isMobile = window.innerWidth <= 768;
-            this.adjustMobileLayout();
         });
     }
 
     initializeEventListeners() {
-        document.getElementById('login-btn').addEventListener('click', () => this.login());
-        document.getElementById('username-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.login();
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
-        document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
-        });
-
-        document.getElementById('message-input').addEventListener('input', () => this.handleTyping());
+        // Login events
+        const loginBtn = document.getElementById('login-btn');
+        const usernameInput = document.getElementById('username-input');
         
-        document.getElementById('receiver-select').addEventListener('change', (e) => {
-            this.selectReceiver(e.target.value);
-        });
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => this.login());
+        }
+        if (usernameInput) {
+            usernameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.login();
+            });
+        }
 
-        // Admin functionality
+        // Chat events
+        const logoutBtn = document.getElementById('logout-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const messageInput = document.getElementById('message-input');
+        const receiverSelect = document.getElementById('receiver-select');
+        
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.logout());
+        }
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        }
+        if (messageInput) {
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.sendMessage();
+            });
+            messageInput.addEventListener('input', () => this.handleTyping());
+        }
+        if (receiverSelect) {
+            receiverSelect.addEventListener('change', (e) => {
+                this.selectReceiver(e.target.value);
+            });
+        }
+
+        // User list clicks
         document.addEventListener('click', (e) => {
+            // User list items
+            if (e.target.closest('#users-list li')) {
+                const li = e.target.closest('#users-list li');
+                const username = li.querySelector('.username').textContent;
+                console.log('👤 User clicked:', username);
+                this.selectReceiver(username);
+            }
+            
+            // Admin buttons
             if (e.target.classList.contains('delete-user-btn')) {
                 const username = e.target.dataset.username;
                 this.deleteUser(username);
@@ -63,45 +91,22 @@ class ChatApp {
                 const username = e.target.dataset.username;
                 this.startAdminChat(username);
             }
-        });
-
-        // Mobile back button
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('back-to-users') || 
-                e.target.closest('.back-to-users')) {
+            
+            // Mobile back button
+            if (e.target.classList.contains('back-to-users') || e.target.closest('.back-to-users')) {
                 this.showUsersListOnMobile();
             }
         });
-
-        // Click on user list items
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('#users-list li')) {
-                const username = e.target.closest('#users-list li').querySelector('.username').textContent;
-                this.selectReceiver(username);
-            }
-        });
-    }
-
-    adjustMobileLayout() {
-        if (this.isMobile && this.mobileChatActive) {
-            setTimeout(() => {
-                this.scrollToBottom(true);
-            }, 100);
-        }
     }
 
     initializeScrollSystem() {
         setTimeout(() => {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
-                console.log('🚀 Initializing scroll system...');
-                
                 messagesContainer.style.overflowY = 'auto';
                 messagesContainer.style.webkitOverflowScrolling = 'touch';
-                messagesContainer.style.height = '100%';
                 
                 messagesContainer.addEventListener('scroll', () => this.handleInfiniteScroll());
-                
                 this.createScrollToBottomButton();
                 
                 setTimeout(() => {
@@ -172,9 +177,8 @@ class ChatApp {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        const scrollToBottom = () => {
+        if (force || this.isAtBottom) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
             setTimeout(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 this.isAtBottom = true;
@@ -182,10 +186,6 @@ class ChatApp {
                     this.scrollToBottomBtn.style.display = 'none';
                 }
             }, 100);
-        };
-
-        if (force || this.isAtBottom) {
-            scrollToBottom();
         }
     }
 
@@ -283,7 +283,6 @@ class ChatApp {
         
         setTimeout(() => {
             this.initializeScrollSystem();
-            this.scrollToBottom(true);
         }, 1000);
     }
 
@@ -376,12 +375,6 @@ class ChatApp {
             } else {
                 existingUser.style.opacity = '1';
             }
-            
-            const options = Array.from(receiverSelect.options);
-            const existingOption = options.find(opt => opt.value === username);
-            if (existingOption) {
-                existingOption.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
-            }
         }
     }
 
@@ -414,7 +407,7 @@ class ChatApp {
     }
 
     selectReceiver(username) {
-        console.log('🎯 Selecting receiver:', username);
+        console.log('🎯 SELECTING RECEIVER:', username);
         this.selectedReceiver = username;
         
         // Reset infinite scroll
@@ -429,11 +422,14 @@ class ChatApp {
         const sendBtn = document.getElementById('send-btn');
         
         if (username) {
+            // ENABLE INPUT AND BUTTON
             messageInput.disabled = false;
             sendBtn.disabled = false;
             messageInput.placeholder = "Type a message...";
             
-            // CRITICAL: Force input to be visible
+            console.log('🔧 Enabling input and send button');
+            
+            // FORCE VISIBILITY - CRITICAL FIX
             this.forceInputVisibility();
             
             this.loadConversationHistory(username);
@@ -441,51 +437,54 @@ class ChatApp {
             
             // On mobile, switch to chat view
             if (this.isMobile) {
+                console.log('📱 Switching to mobile chat view');
                 this.showChatOnMobile();
             } else {
                 // On desktop, focus input
                 messageInput.focus();
             }
-        } else {
-            messageInput.disabled = true;
-            sendBtn.disabled = true;
-            messageInput.placeholder = "Select a user to start chatting";
-            this.showWelcomeMessage();
-            
-            // On mobile, switch back to users list
-            if (this.isMobile) {
-                this.showUsersListOnMobile();
-            }
         }
     }
 
-    // CRITICAL METHOD: Force input to be visible
+    // CRITICAL METHOD: FORCE INPUT TO BE VISIBLE
     forceInputVisibility() {
+        console.log('🔧 FORCING INPUT VISIBILITY');
+        
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         const inputContainer = document.querySelector('.message-input-container');
         
-        console.log('🔧 Forcing input visibility...');
-        
-        // Force input container to be visible
+        // CRITICAL: Remove any hiding classes and force display
         if (inputContainer) {
+            inputContainer.classList.remove('mobile-hidden');
             inputContainer.style.display = 'flex';
             inputContainer.style.visibility = 'visible';
             inputContainer.style.opacity = '1';
+            inputContainer.style.position = 'sticky';
+            inputContainer.style.bottom = '0';
+            inputContainer.style.zIndex = '1000';
+            inputContainer.style.background = '#f0f0f0';
+            inputContainer.style.borderTop = '1px solid #ddd';
+            inputContainer.style.padding = '0.75rem';
+            console.log('✅ Input container forced visible');
         }
         
-        // Force message input to be visible
         if (messageInput) {
             messageInput.style.display = 'block';
             messageInput.style.visibility = 'visible';
             messageInput.style.opacity = '1';
+            messageInput.style.width = '100%';
+            messageInput.disabled = false;
+            messageInput.placeholder = "Type a message...";
+            console.log('✅ Message input forced visible');
         }
         
-        // Force send button to be visible
         if (sendBtn) {
             sendBtn.style.display = 'block';
             sendBtn.style.visibility = 'visible';
             sendBtn.style.opacity = '1';
+            sendBtn.disabled = false;
+            console.log('✅ Send button forced visible');
         }
         
         // Scroll to bottom to ensure input is visible
@@ -495,11 +494,11 @@ class ChatApp {
     }
 
     showChatOnMobile() {
+        console.log('📱 SHOWING CHAT ON MOBILE');
+        
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
-        
-        console.log('📱 Switching to mobile chat view...');
         
         if (usersSidebar && chatArea && backButton) {
             // Hide users sidebar
@@ -515,23 +514,28 @@ class ChatApp {
         this.mobileChatActive = true;
         document.body.classList.add('mobile-chat-active');
         
-        // Force input visibility
+        // CRITICAL: Force input visibility with delay to ensure DOM is updated
         setTimeout(() => {
             this.forceInputVisibility();
+            
+            // Focus on input to open keyboard
             const messageInput = document.getElementById('message-input');
             if (messageInput) {
-                messageInput.focus();
+                setTimeout(() => {
+                    messageInput.focus();
+                    console.log('⌨️ Keyboard should open now');
+                }, 500);
             }
-        }, 200);
+        }, 100);
     }
 
     showUsersListOnMobile() {
+        console.log('📱 SHOWING USERS LIST ON MOBILE');
+        
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
         const messageInput = document.getElementById('message-input');
-        
-        console.log('📱 Switching back to users list...');
         
         if (usersSidebar && chatArea && backButton) {
             // Show users sidebar
@@ -853,7 +857,6 @@ class ChatApp {
     }
 
     showNotification(message, type = 'success') {
-        // Create notification element
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
@@ -906,7 +909,6 @@ class ChatApp {
         this.selectedReceiver = null;
         this.isAdmin = false;
         this.mobileChatActive = false;
-        this.isKeyboardOpen = false;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
@@ -941,5 +943,5 @@ class ChatApp {
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Starting MugiChat App...');
-    const app = new ChatApp();
+    new ChatApp();
 });
