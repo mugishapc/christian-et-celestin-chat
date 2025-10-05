@@ -402,12 +402,16 @@ html, body {
     flex-shrink: 0;
     position: relative;
     z-index: 1000;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .input-group {
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    width: 100%;
 }
 
 #receiver-select {
@@ -427,6 +431,7 @@ html, body {
     font-size: 1rem;
     background: white;
     outline: none;
+    min-height: 44px;
 }
 
 #message-input:focus {
@@ -443,6 +448,8 @@ html, body {
     font-size: 1rem;
     font-weight: 500;
     transition: all 0.3s ease;
+    min-height: 44px;
+    white-space: nowrap;
 }
 
 #send-btn:hover:not(:disabled) {
@@ -618,7 +625,7 @@ html, body {
         padding-bottom: 0;
     }
     
-    /* Input area - Always visible at bottom with proper spacing */
+    /* Input area - Always visible at bottom with proper spacing - FIXED */
     .message-input-container {
         position: sticky;
         bottom: 0;
@@ -630,6 +637,7 @@ html, body {
         z-index: 1000;
         display: flex !important;
         visibility: visible !important;
+        opacity: 1 !important;
         margin-top: auto;
     }
     
@@ -716,6 +724,11 @@ html, body {
         
         .messages-container {
             height: calc(100vh - 140px) !important;
+        }
+        
+        .message-input-container {
+            position: sticky !important;
+            bottom: 0 !important;
         }
     }
 }
