@@ -394,7 +394,7 @@ html, body {
     margin-top: 0.25rem;
 }
 
-/* Input area - WhatsApp Style - FIXED FOR MOBILE */
+/* Input area - WhatsApp Style - GUARANTEED VISIBLE */
 .message-input-container {
     padding: 1rem;
     background: #f0f0f0;
@@ -523,7 +523,7 @@ html, body {
     background: #064c43;
 }
 
-/* MOBILE RESPONSIVE - COMPLETELY FIXED LAYOUT */
+/* MOBILE RESPONSIVE - GUARANTEED WORKING */
 @media (max-width: 768px) {
     .chat-main {
         flex-direction: column;
@@ -599,14 +599,14 @@ html, body {
         padding: 0.2rem;
     }
     
-    /* Chat area - Takes full screen when active - FIXED */
+    /* Chat area - Takes full screen when active */
     .chat-area {
         flex: 1;
         min-height: 0;
-        display: none !important;
-        flex-direction: column !important;
+        display: none;
+        flex-direction: column;
         position: relative;
-        height: 100% !important;
+        height: 100%;
         background: #e5ddd5;
     }
     
@@ -625,7 +625,7 @@ html, body {
         padding-bottom: 0;
     }
     
-    /* Input area - COMPLETELY FIXED FOR MOBILE */
+    /* Input area - GUARANTEED TO BE VISIBLE ON MOBILE */
     .message-input-container {
         position: sticky !important;
         bottom: 0 !important;
@@ -728,56 +728,6 @@ html, body {
         right: 0;
         bottom: 0;
     }
-    
-    /* Fix for iOS Safari */
-    @supports (-webkit-touch-callout: none) {
-        .chat-area.mobile-active {
-            height: 100vh;
-        }
-        
-        .messages-container {
-            height: calc(100vh - 140px) !important;
-        }
-        
-        .message-input-container {
-            position: sticky !important;
-            bottom: 0 !important;
-        }
-        
-        #message-input {
-    -webkit-appearance: none;
-    appearance: none;
-    border-radius: 20px !important;
-}
-
-
-/* Mobile landscape optimization */
-@media (max-width: 768px) and (orientation: landscape) {
-    .users-sidebar {
-        height: 100px;
-    }
-    
-    #users-list {
-        height: 70px;
-    }
-    
-    #users-list li {
-        height: 60px;
-        min-width: 120px;
-        padding: 0.5rem;
-    }
-    
-    .message-input-container {
-        padding: 0.5rem !important;
-    }
-    
-    .chat-area.mobile-active {
-        height: 100vh !important;
-    }
-    
-    .messages-container {
-        height: calc(100vh - 120px) !important;
-    }
 }
 
 /* Critical fix: Ensure input area is always visible and properly positioned */
@@ -806,48 +756,6 @@ html, body {
     min-height: 0 !important;
     overflow-y: auto !important;
     position: relative;
-}
-
-/* Fix for mobile keyboard */
-.mobile-keyboard-open .messages-container {
-    height: calc(100vh - 200px) !important;
-}
-
-.mobile-keyboard-open .message-input-container {
-    position: fixed !important;
-    bottom: 0 !important;
-}
-
-/* Tablet responsive */
-@media (max-width: 1024px) and (min-width: 769px) {
-    .users-sidebar {
-        width: 280px;
-    }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .users-sidebar {
-        background: #1e1e1e;
-        color: white;
-    }
-    
-    .users-sidebar-header {
-        background: #2d2d2d;
-    }
-    
-    #users-list li {
-        background: #2d2d2d;
-        color: white;
-    }
-    
-    #users-list li.active {
-        background: #3d3d3d;
-    }
-    
-    #users-list li:hover {
-        background: #3d3d3d;
-    }
 }
 
 /* Ensure scrolling works on all devices */

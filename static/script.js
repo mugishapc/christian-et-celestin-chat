@@ -20,6 +20,7 @@ class ChatApp {
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
         this.mobileChatActive = false;
+        this.isKeyboardOpen = false;
         
         this.initializeEventListeners();
         this.initializeScrollSystem();
@@ -30,6 +31,7 @@ class ChatApp {
         this.isMobile = window.innerWidth <= 768;
         window.addEventListener('resize', () => {
             this.isMobile = window.innerWidth <= 768;
+            this.adjustMobileLayout();
         });
     }
 
@@ -70,13 +72,29 @@ class ChatApp {
                 this.showUsersListOnMobile();
             }
         });
+
+        // Click on user list items
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#users-list li')) {
+                const username = e.target.closest('#users-list li').querySelector('.username').textContent;
+                this.selectReceiver(username);
+            }
+        });
+    }
+
+    adjustMobileLayout() {
+        if (this.isMobile && this.mobileChatActive) {
+            setTimeout(() => {
+                this.scrollToBottom(true);
+            }, 100);
+        }
     }
 
     initializeScrollSystem() {
         setTimeout(() => {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
-                console.log('🚀 Initializing infinite scroll system...');
+                console.log('🚀 Initializing scroll system...');
                 
                 messagesContainer.style.overflowY = 'auto';
                 messagesContainer.style.webkitOverflowScrolling = 'touch';
@@ -113,12 +131,6 @@ class ChatApp {
         if (this.scrollToBottomBtn) {
             this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
         }
-        
-        this.isScrolling = true;
-        clearTimeout(this.scrollTimeout);
-        this.scrollTimeout = setTimeout(() => {
-            this.isScrolling = false;
-        }, 150);
     }
 
     loadMoreMessages() {
@@ -331,7 +343,6 @@ class ChatApp {
             ` : ''}
         `;
         
-        li.addEventListener('click', () => this.selectReceiver(username));
         if (!isOnline) {
             li.style.opacity = '0.7';
         }
@@ -403,6 +414,7 @@ class ChatApp {
     }
 
     selectReceiver(username) {
+        console.log('🎯 Selecting receiver:', username);
         this.selectedReceiver = username;
         
         // Reset infinite scroll
@@ -419,6 +431,10 @@ class ChatApp {
         if (username) {
             messageInput.disabled = false;
             sendBtn.disabled = false;
+            messageInput.placeholder = "Type a message...";
+            
+            // CRITICAL: Force input to be visible
+            this.forceInputVisibility();
             
             this.loadConversationHistory(username);
             this.updateUsersListActiveState(username);
@@ -426,18 +442,6 @@ class ChatApp {
             // On mobile, switch to chat view
             if (this.isMobile) {
                 this.showChatOnMobile();
-                
-                // Double ensure input is enabled and visible
-                setTimeout(() => {
-                    if (messageInput) {
-                        messageInput.disabled = false;
-                        messageInput.focus();
-                    }
-                    if (sendBtn) {
-                        sendBtn.disabled = false;
-                    }
-                    this.scrollToBottom(true);
-                }, 500);
             } else {
                 // On desktop, focus input
                 messageInput.focus();
@@ -445,6 +449,7 @@ class ChatApp {
         } else {
             messageInput.disabled = true;
             sendBtn.disabled = true;
+            messageInput.placeholder = "Select a user to start chatting";
             this.showWelcomeMessage();
             
             // On mobile, switch back to users list
@@ -454,11 +459,47 @@ class ChatApp {
         }
     }
 
+    // CRITICAL METHOD: Force input to be visible
+    forceInputVisibility() {
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const inputContainer = document.querySelector('.message-input-container');
+        
+        console.log('🔧 Forcing input visibility...');
+        
+        // Force input container to be visible
+        if (inputContainer) {
+            inputContainer.style.display = 'flex';
+            inputContainer.style.visibility = 'visible';
+            inputContainer.style.opacity = '1';
+        }
+        
+        // Force message input to be visible
+        if (messageInput) {
+            messageInput.style.display = 'block';
+            messageInput.style.visibility = 'visible';
+            messageInput.style.opacity = '1';
+        }
+        
+        // Force send button to be visible
+        if (sendBtn) {
+            sendBtn.style.display = 'block';
+            sendBtn.style.visibility = 'visible';
+            sendBtn.style.opacity = '1';
+        }
+        
+        // Scroll to bottom to ensure input is visible
+        setTimeout(() => {
+            this.scrollToBottom(true);
+        }, 300);
+    }
+
     showChatOnMobile() {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
-        const receiverSelect = document.getElementById('receiver-select');
+        
+        console.log('📱 Switching to mobile chat view...');
         
         if (usersSidebar && chatArea && backButton) {
             // Hide users sidebar
@@ -469,43 +510,28 @@ class ChatApp {
             
             // Show back button
             backButton.style.display = 'block';
-            
-            // Hide receiver select on mobile (we use back button instead)
-            if (receiverSelect) {
-                receiverSelect.style.display = 'none';
-            }
         }
         
         this.mobileChatActive = true;
         document.body.classList.add('mobile-chat-active');
         
-        // Focus on message input and ensure it's visible
+        // Force input visibility
         setTimeout(() => {
+            this.forceInputVisibility();
             const messageInput = document.getElementById('message-input');
-            const messageInputContainer = document.querySelector('.message-input-container');
-            
             if (messageInput) {
                 messageInput.focus();
-                messageInput.disabled = false;
             }
-            
-            // Ensure input container is visible
-            if (messageInputContainer) {
-                messageInputContainer.style.display = 'flex';
-                messageInputContainer.style.visibility = 'visible';
-                messageInputContainer.style.opacity = '1';
-            }
-            
-            // Scroll to bottom to see the input area
-            this.scrollToBottom(true);
-        }, 300);
+        }, 200);
     }
 
     showUsersListOnMobile() {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
         const backButton = document.querySelector('.back-to-users');
-        const receiverSelect = document.getElementById('receiver-select');
+        const messageInput = document.getElementById('message-input');
+        
+        console.log('📱 Switching back to users list...');
         
         if (usersSidebar && chatArea && backButton) {
             // Show users sidebar
@@ -516,20 +542,17 @@ class ChatApp {
             
             // Hide back button
             backButton.style.display = 'none';
-            
-            // Show receiver select
-            if (receiverSelect) {
-                receiverSelect.style.display = 'block';
-            }
         }
         
         this.mobileChatActive = false;
         document.body.classList.remove('mobile-chat-active');
         this.selectedReceiver = null;
         
-        if (document.getElementById('receiver-select')) {
-            document.getElementById('receiver-select').value = '';
+        if (messageInput) {
+            messageInput.placeholder = "Select a user to start chatting";
+            messageInput.disabled = true;
         }
+        
         this.showWelcomeMessage();
     }
 
@@ -663,7 +686,11 @@ class ChatApp {
         
         this.stopTyping();
         messageInput.value = '';
-        messageInput.focus();
+        
+        // Keep focus on input after sending
+        setTimeout(() => {
+            messageInput.focus();
+        }, 100);
     }
 
     displayMessage(message) {
@@ -811,6 +838,7 @@ class ChatApp {
         
         messageInput.disabled = false;
         sendBtn.disabled = false;
+        messageInput.placeholder = "Type a message...";
         messageInput.focus();
         
         this.loadConversationHistory(username);
@@ -878,6 +906,7 @@ class ChatApp {
         this.selectedReceiver = null;
         this.isAdmin = false;
         this.mobileChatActive = false;
+        this.isKeyboardOpen = false;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
@@ -913,13 +942,4 @@ class ChatApp {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Starting MugiChat App...');
     const app = new ChatApp();
-    
-    setTimeout(() => {
-        const messagesContainer = document.getElementById('messages-container');
-        if (messagesContainer) {
-            console.log('🔧 Applying final scroll fixes...');
-            messagesContainer.style.overflowY = 'auto';
-            messagesContainer.style.webkitOverflowScrolling = 'touch';
-        }
-    }, 2000);
 });
