@@ -180,7 +180,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching Christian Et Celestin Chat...</div>
+                <div class="loading-text">Launching MugiChat...</div>
             </div>
         `;
     }
@@ -612,7 +612,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to Christian Et Celestin Chat!</p>
+                <p>Welcome to MugiChat!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }

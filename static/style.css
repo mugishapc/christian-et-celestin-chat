@@ -34,6 +34,7 @@ html, body {
     justify-content: center;
     align-items: center;
     padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .login-container {
@@ -144,6 +145,8 @@ html, body {
     flex-shrink: 0;
     height: 70px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 100;
 }
 
 .chat-header h2 {
@@ -181,7 +184,7 @@ html, body {
     position: relative;
 }
 
-/* Users sidebar - Mobile Optimized */
+/* Users sidebar - Desktop */
 .users-sidebar {
     width: 320px;
     background: white;
@@ -189,17 +192,26 @@ html, body {
     overflow-y: auto;
     flex-shrink: 0;
     height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .users-sidebar-header {
     padding: 1rem;
     background: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
 }
 
 .users-sidebar-header h3 {
     color: #333;
     font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.users-list-container {
+    flex: 1;
+    overflow-y: auto;
 }
 
 #users-list {
@@ -234,21 +246,27 @@ html, body {
 
 .user-status {
     font-size: 0.7rem;
+    flex-shrink: 0;
 }
 
 .username {
     font-weight: 500;
     flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .admin-badge {
     font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
 .admin-actions {
     display: flex;
     gap: 0.5rem;
     margin-left: auto;
+    flex-shrink: 0;
 }
 
 .admin-chat-btn, .delete-user-btn {
@@ -259,6 +277,11 @@ html, body {
     border-radius: 4px;
     font-size: 0.9rem;
     transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
 }
 
 .admin-chat-btn:hover {
@@ -381,6 +404,7 @@ html, body {
 .message-text {
     margin-bottom: 0.25rem;
     line-height: 1.4;
+    word-wrap: break-word;
 }
 
 .message-time {
@@ -421,6 +445,7 @@ html, body {
     font-size: 1rem;
     background: white;
     outline: none;
+    min-width: 0;
 }
 
 #message-input:focus {
@@ -437,6 +462,7 @@ html, body {
     font-size: 1rem;
     font-weight: 500;
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 #send-btn:hover:not(:disabled) {
@@ -510,121 +536,273 @@ html, body {
     background: #064c43;
 }
 
-/* Mobile responsive */
+/* ===== MOBILE RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
+    /* Login screen mobile optimization */
+    #login-screen.active {
+        padding: 1rem;
+    }
+    
+    .login-container {
+        padding: 1.5rem;
+        margin: 0;
+        border-radius: 15px;
+    }
+    
+    .login-container h1 {
+        font-size: 1.5rem;
+    }
+    
+    /* Chat screen mobile layout */
     .chat-main {
         flex-direction: column;
         height: calc(100vh - 70px);
     }
     
+    /* Users sidebar mobile - Horizontal scroll */
     .users-sidebar {
         width: 100%;
         height: 140px;
         border-right: none;
         border-bottom: 1px solid #e9ecef;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: hidden;
         flex-shrink: 0;
     }
     
     .users-sidebar-header {
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        z-index: 10;
+    }
+    
+    .users-sidebar-header h3 {
+        font-size: 1rem;
+        margin: 0;
+    }
+    
+    .users-list-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
     }
     
     #users-list {
         display: flex;
-        overflow-x: auto;
-        gap: 0.5rem;
-        -webkit-overflow-scrolling: touch;
-        height: 100px;
+        flex-direction: row;
+        padding: 0.5rem 1rem;
+        gap: 0.75rem;
+        height: 80px;
         align-items: center;
-        padding: 0.5rem;
     }
     
     #users-list li {
         flex: 0 0 auto;
-        min-width: 140px;
+        width: 140px;
+        height: 70px;
         margin-bottom: 0;
-        height: 80px;
+        padding: 0.75rem;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        flex-direction: column;
         text-align: center;
-        padding: 0.75rem;
+        position: relative;
+    }
+    
+    #users-list li .username {
+        font-size: 0.85rem;
+        margin: 0.25rem 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    
+    #users-list li .user-status {
+        margin-bottom: 0.25rem;
     }
     
     .admin-actions {
         position: absolute;
         bottom: 5px;
         right: 5px;
+        gap: 0.25rem;
     }
     
+    .admin-chat-btn, .delete-user-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 0.8rem;
+    }
+    
+    /* Chat area mobile optimization */
     .chat-area {
         flex: 1;
         min-height: 0;
     }
     
-    .input-group {
-        flex-direction: row;
-    }
-    
-    #receiver-select {
-        flex: 0 0 120px;
-        font-size: 0.8rem;
+    .messages-container {
+        padding: 0.75rem;
+        -webkit-overflow-scrolling: touch !important;
     }
     
     .message {
         max-width: 85%;
     }
     
+    .message-content {
+        padding: 0.6rem 0.8rem;
+    }
+    
+    /* Input area mobile optimization */
+    .message-input-container {
+        padding: 0.75rem;
+        background: #f0f0f0;
+    }
+    
+    .input-group {
+        gap: 0.5rem;
+    }
+    
+    #receiver-select {
+        flex: 0 0 120px;
+        font-size: 0.8rem;
+        padding: 0.6rem 0.8rem;
+    }
+    
+    #message-input {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    #send-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Scroll to bottom button mobile */
     .scroll-to-bottom {
         bottom: 70px;
-        right: 10px;
+        right: 15px;
         width: 50px;
         height: 50px;
+        font-size: 1.3rem;
+    }
+    
+    /* Welcome message mobile */
+    .welcome-message {
+        margin-top: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .welcome-icon {
+        font-size: 2.5rem;
+    }
+    
+    .welcome-message p {
+        font-size: 0.9rem;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .chat-header {
+        padding: 0.75rem;
+        height: 60px;
+    }
+    
+    .chat-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    #logout-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .users-sidebar {
+        height: 130px;
+    }
+    
+    #users-list {
+        height: 75px;
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    #users-list li {
+        width: 120px;
+        height: 65px;
+        padding: 0.6rem;
+    }
+    
+    #users-list li .username {
+        font-size: 0.8rem;
+    }
+    
+    .input-group {
+        gap: 0.4rem;
+    }
+    
+    #receiver-select {
+        flex: 0 0 100px;
+        font-size: 0.75rem;
+        padding: 0.5rem 0.6rem;
+    }
+    
+    #message-input {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.85rem;
+    }
+    
+    #send-btn {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
     }
     
     .messages-container {
         padding: 0.5rem;
-        -webkit-overflow-scrolling: touch !important;
     }
     
-    .login-container {
-        margin: 1rem;
-        padding: 1.5rem;
+    .message {
+        max-width: 90%;
     }
 }
 
 /* Tablet responsive */
-@media (max-width: 1024px) {
+@media (min-width: 769px) and (max-width: 1024px) {
     .users-sidebar {
         width: 280px;
     }
+    
+    .chat-main {
+        height: calc(100vh - 70px);
+    }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
     .users-sidebar {
-        background: #1e1e1e;
-        color: white;
+        height: 100px;
     }
     
-    .users-sidebar-header {
-        background: #2d2d2d;
+    #users-list {
+        height: 60px;
     }
     
     #users-list li {
-        background: #2d2d2d;
-        color: white;
+        height: 55px;
+        width: 130px;
     }
     
-    #users-list li.active {
-        background: #3d3d3d;
+    .chat-main {
+        height: calc(100vh - 70px);
     }
     
-    #users-list li:hover {
-        background: #3d3d3d;
+    .messages-container {
+        padding: 0.5rem;
     }
 }
 
@@ -637,4 +815,32 @@ html, body {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
+}
+
+/* Hide scrollbars but keep functionality */
+.users-list-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.users-list-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+
+.users-list-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+
+/* Safe area support for notched phones */
+@supports(padding: max(0px)) {
+    .chat-header, .message-input-container {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+    }
+    
+    #chat-screen.active {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
 }
