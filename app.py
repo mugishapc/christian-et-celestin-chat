@@ -21,6 +21,9 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 # Database configuration
 DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-adzvgndi-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
+# Admin configuration
+ADMIN_USERNAME = "Mpc"
+
 def get_db_connection():
     """Create and return a database connection"""
     try:
@@ -31,18 +34,20 @@ def get_db_connection():
         return None
 
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables with admin support and ensure all columns exist"""
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
-                # Create users table
+                # Create users table with all required columns
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username VARCHAR(50) UNIQUE NOT NULL,
+                        is_admin BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_online BOOLEAN DEFAULT FALSE
                     )
                 """)
                 
@@ -64,6 +69,21 @@ def init_database():
                     ON messages (sender, receiver, timestamp)
                 """)
                 
+                # Add missing columns if they don't exist
+                try:
+                    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
+                    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE")
+                except Exception as e:
+                    logger.warning(f"Columns may already exist: {e}")
+                
+                # Ensure admin user exists
+                cur.execute("""
+                    INSERT INTO users (username, is_admin) 
+                    VALUES (%s, TRUE)
+                    ON CONFLICT (username) 
+                    DO UPDATE SET is_admin = TRUE
+                """, (ADMIN_USERNAME,))
+                
                 conn.commit()
                 logger.info("Database tables initialized successfully")
         except Exception as e:
@@ -75,8 +95,9 @@ def init_database():
 # Initialize database on startup
 init_database()
 
-# In-memory storage for active users (still needed for real-time)
+# In-memory storage for active users
 active_users = {}
+user_sessions = {}  # Track multiple sessions per user
 
 @app.route('/')
 def index():
@@ -89,15 +110,88 @@ def get_users():
     if conn:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT username, last_seen FROM users ORDER BY username")
+                # Use COALESCE to handle cases where columns might not exist yet
+                cur.execute("""
+                    SELECT 
+                        username, 
+                        COALESCE(last_seen, CURRENT_TIMESTAMP) as last_seen,
+                        COALESCE(is_online, FALSE) as is_online,
+                        COALESCE(is_admin, FALSE) as is_admin 
+                    FROM users 
+                    ORDER BY COALESCE(is_online, FALSE) DESC, username
+                """)
                 users = cur.fetchall()
-                return jsonify([user['username'] for user in users])
+                return jsonify([{
+                    'username': user['username'],
+                    'is_online': user['is_online'],
+                    'is_admin': user['is_admin']
+                } for user in users])
         except Exception as e:
             logger.error(f"Error fetching users: {e}")
             return jsonify([])
         finally:
             conn.close()
     return jsonify([])
+
+@app.route('/admin/delete_user', methods=['POST'])
+def delete_user():
+    """Admin endpoint to delete user"""
+    data = request.get_json()
+    admin_username = data.get('admin_username')
+    target_username = data.get('target_username')
+    
+    if not is_user_admin(admin_username):
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Delete user messages
+                cur.execute("""
+                    DELETE FROM messages 
+                    WHERE sender = %s OR receiver = %s
+                """, (target_username, target_username))
+                
+                # Delete user
+                cur.execute("""
+                    DELETE FROM users WHERE username = %s
+                """, (target_username,))
+                
+                conn.commit()
+                
+                # Remove from active users
+                if target_username in active_users:
+                    del active_users[target_username]
+                
+                # Notify all users
+                emit('user_deleted', {'username': target_username}, broadcast=True, namespace='/')
+                
+                return jsonify({'success': True})
+        except Exception as e:
+            logger.error(f"Error deleting user: {e}")
+            conn.rollback()
+            return jsonify({'success': False, 'error': str(e)})
+        finally:
+            conn.close()
+    return jsonify({'success': False, 'error': 'Database connection failed'})
+
+def is_user_admin(username):
+    """Check if user is admin"""
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Use COALESCE to handle cases where is_admin column might not exist
+                cur.execute("SELECT COALESCE(is_admin, FALSE) as is_admin FROM users WHERE username = %s", (username,))
+                result = cur.fetchone()
+                return result and result[0]
+        except Exception as e:
+            logger.error(f"Error checking admin status: {e}")
+            return False
+        finally:
+            conn.close()
+    return False
 
 @socketio.on('connect')
 def handle_connect():
@@ -112,24 +206,46 @@ def handle_disconnect():
             break
     
     if user_to_remove:
-        del active_users[user_to_remove]
-        update_user_last_seen(user_to_remove)
-        emit('user_left', {'username': user_to_remove}, broadcast=True)
-        logger.info(f"User disconnected: {user_to_remove}")
+        # Only remove if this is the last session
+        if user_to_remove in user_sessions:
+            user_sessions[user_to_remove].discard(request.sid)
+            if not user_sessions[user_to_remove]:
+                del user_sessions[user_to_remove]
+                del active_users[user_to_remove]
+                update_user_online_status(user_to_remove, False)
+                emit('user_left', {'username': user_to_remove}, broadcast=True)
+                logger.info(f"User disconnected: {user_to_remove}")
 
-def update_user_last_seen(username):
-    """Update user's last seen timestamp"""
+def update_user_online_status(username, is_online):
+    """Update user's online status in database"""
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE username = %s",
-                    (username,)
-                )
+                # Update both last_seen and is_online
+                cur.execute("""
+                    UPDATE users SET last_seen = CURRENT_TIMESTAMP 
+                    WHERE username = %s
+                """, (username,))
+                
+                # Try to update is_online if column exists
+                try:
+                    cur.execute("""
+                        UPDATE users SET is_online = %s 
+                        WHERE username = %s
+                    """, (is_online, username))
+                except Exception as e:
+                    logger.warning(f"is_online column might not exist yet: {e}")
+                    # Add the column if it doesn't exist
+                    try:
+                        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE")
+                        cur.execute("UPDATE users SET is_online = %s WHERE username = %s", (is_online, username))
+                    except Exception as col_error:
+                        logger.warning(f"Could not add is_online column: {col_error}")
+                
                 conn.commit()
         except Exception as e:
-            logger.error(f"Error updating last seen: {e}")
+            logger.error(f"Error updating online status: {e}")
             conn.rollback()
         finally:
             conn.close()
@@ -138,7 +254,8 @@ def update_user_last_seen(username):
 def handle_login(data):
     username = data['username']
     
-    if username in active_users:
+    # Allow admin to always login (multiple sessions)
+    if username != ADMIN_USERNAME and username in active_users:
         emit('login_failed', {'message': 'Username already taken'})
         return
     
@@ -146,21 +263,32 @@ def handle_login(data):
     if register_user(username):
         active_users[username] = request.sid
         
+        # Track multiple sessions
+        if username not in user_sessions:
+            user_sessions[username] = set()
+        user_sessions[username].add(request.sid)
+        
+        update_user_online_status(username, True)
+        
         # Get online users and all registered users
         online_users = [user for user in active_users.keys() if user != username]
         all_users = get_all_users_except(username)
+        
+        # Check if user is admin
+        is_admin = is_user_admin(username)
         
         # Send user list to the new user
         emit('login_success', {
             'username': username,
             'online_users': online_users,
-            'all_users': all_users
+            'all_users': all_users,
+            'is_admin': is_admin
         })
         
         # Notify all users about the new user
         emit('user_joined', {'username': username}, broadcast=True)
         
-        logger.info(f"User logged in: {username}")
+        logger.info(f"User logged in: {username} (Admin: {is_admin})")
     else:
         emit('login_failed', {'message': 'Registration failed'})
 
@@ -178,6 +306,17 @@ def register_user(username):
                     DO UPDATE SET last_seen = CURRENT_TIMESTAMP
                     RETURNING id
                 """, (username,))
+                
+                # Ensure admin status for admin user
+                if username == ADMIN_USERNAME:
+                    try:
+                        cur.execute("""
+                            UPDATE users SET is_admin = TRUE 
+                            WHERE username = %s
+                        """, (username,))
+                    except Exception as e:
+                        logger.warning(f"Could not set admin status: {e}")
+                
                 conn.commit()
                 return True
         except Exception as e:
@@ -194,12 +333,22 @@ def get_all_users_except(exclude_username):
     if conn:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT username FROM users WHERE username != %s ORDER BY username",
-                    (exclude_username,)
-                )
+                # Use COALESCE for compatibility
+                cur.execute("""
+                    SELECT 
+                        username, 
+                        COALESCE(is_online, FALSE) as is_online,
+                        COALESCE(is_admin, FALSE) as is_admin 
+                    FROM users 
+                    WHERE username != %s 
+                    ORDER BY COALESCE(is_online, FALSE) DESC, username
+                """, (exclude_username,))
                 users = cur.fetchall()
-                return [user['username'] for user in users]
+                return [{
+                    'username': user['username'],
+                    'is_online': user['is_online'],
+                    'is_admin': user['is_admin']
+                } for user in users]
         except Exception as e:
             logger.error(f"Error fetching all users: {e}")
             return []
@@ -214,6 +363,10 @@ def handle_send_message(data):
     message_text = data['message']
     timestamp = datetime.now().isoformat()
     
+    # Allow admin to send messages as any user
+    if sender != ADMIN_USERNAME and sender not in active_users:
+        return
+    
     # Save message to database
     message_id = save_message_to_db(sender, receiver, message_text)
     
@@ -226,14 +379,15 @@ def handle_send_message(data):
             'timestamp': timestamp
         }
         
-        # Send only to the two participants
+        # Send to sender if they're active
         if sender in active_users:
             emit('new_message', message, room=active_users[sender])
         
+        # Send to receiver if they're active
         if receiver in active_users:
             emit('new_message', message, room=active_users[receiver])
         
-        logger.info(f"Private message from {sender} to {receiver}: {message_text}")
+        logger.info(f"Private message from {sender} to {receiver}")
     else:
         logger.error(f"Failed to save message from {sender} to {receiver}")
 
@@ -263,18 +417,39 @@ def save_message_to_db(sender, receiver, message_text):
 def handle_get_conversation(data):
     user1 = data['user1']
     user2 = data['user2']
+    limit = data.get('limit', 50)
+    offset = data.get('offset', 0)
     
-    # Get messages from database
-    conversation_messages = get_conversation_from_db(user1, user2)
+    # Get messages from database with pagination
+    conversation_messages = get_conversation_from_db(user1, user2, limit, offset)
     
     emit('conversation_history', {
         'user1': user1,
         'user2': user2,
-        'messages': conversation_messages
+        'messages': conversation_messages,
+        'offset': offset,
+        'has_more': len(conversation_messages) == limit
     })
 
-def get_conversation_from_db(user1, user2):
-    """Get conversation between two users from database"""
+@socketio.on('get_more_messages')
+def handle_get_more_messages(data):
+    user1 = data['user1']
+    user2 = data['user2']
+    offset = data['offset']
+    limit = data.get('limit', 50)
+    
+    messages = get_conversation_from_db(user1, user2, limit, offset)
+    
+    emit('more_messages', {
+        'user1': user1,
+        'user2': user2,
+        'messages': messages,
+        'offset': offset,
+        'has_more': len(messages) == limit
+    })
+
+def get_conversation_from_db(user1, user2, limit=50, offset=0):
+    """Get conversation between two users from database with pagination"""
     conn = get_db_connection()
     if conn:
         try:
@@ -283,11 +458,12 @@ def get_conversation_from_db(user1, user2):
                     SELECT id, sender, receiver, message_text as text, timestamp
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
-                    ORDER BY timestamp ASC
-                """, (user1, user2, user2, user1))
+                    ORDER BY timestamp DESC
+                    LIMIT %s OFFSET %s
+                """, (user1, user2, user2, user1, limit, offset))
                 
                 messages = cur.fetchall()
-                # Convert to list of dictionaries
+                # Convert to list of dictionaries and reverse for chronological order
                 result = []
                 for msg in messages:
                     result.append({
@@ -297,7 +473,7 @@ def get_conversation_from_db(user1, user2):
                         'text': msg['text'],
                         'timestamp': msg['timestamp'].isoformat()
                     })
-                return result
+                return result[::-1]  # Return in chronological order
         except Exception as e:
             logger.error(f"Error fetching conversation: {e}")
             return []
@@ -318,8 +494,50 @@ def handle_typing(data):
             'is_typing': is_typing
         }, room=active_users[receiver])
 
+@socketio.on('admin_send_message')
+def handle_admin_send_message(data):
+    """Admin sends message as another user"""
+    admin_username = data['admin_username']
+    sender = data['sender']
+    receiver = data['receiver']
+    message_text = data['message']
+    
+    if not is_user_admin(admin_username):
+        return
+    
+    # Save message as the specified sender
+    message_id = save_message_to_db(sender, receiver, message_text)
+    
+    if message_id:
+        message = {
+            'id': message_id,
+            'sender': sender,
+            'receiver': receiver,
+            'text': message_text,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Send to receiver if they're active
+        if receiver in active_users:
+            emit('new_message', message, room=active_users[receiver])
+        
+        # Send to admin
+        if admin_username in active_users:
+            emit('new_message', message, room=active_users[admin_username])
+
+@app.route('/admin/fix_database', methods=['POST'])
+def fix_database():
+    """Endpoint to fix database schema"""
+    try:
+        init_database()
+        return jsonify({'success': True, 'message': 'Database schema updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     print("🚀 Starting Christian Et Celestin Chat Server...")
     print("📍 Access at: http://localhost:5000")
     print("🗄️  Database: PostgreSQL with Neon")
+    print("🔧 Features: Infinite Scroll, WhatsApp UI, Admin Panel")
+    print("👑 Admin Username: Mpc")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

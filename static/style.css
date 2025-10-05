@@ -9,7 +9,7 @@
 html, body {
     width: 100%;
     height: 100%;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow: hidden;
 }
@@ -39,7 +39,7 @@ html, body {
 .login-container {
     background: white;
     padding: 2rem;
-    border-radius: 15px;
+    border-radius: 20px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     text-align: center;
     width: 100%;
@@ -50,15 +50,24 @@ html, body {
     color: #333;
     margin-bottom: 1.5rem;
     font-size: 1.8rem;
+    font-weight: 600;
 }
 
 .login-form input {
     width: 100%;
     padding: 15px;
     margin-bottom: 1rem;
-    border: 2px solid #ddd;
-    border-radius: 10px;
+    border: 2px solid #e1e8ed;
+    border-radius: 25px;
     font-size: 1rem;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.login-form input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
 }
 
 .login-form button {
@@ -67,22 +76,30 @@ html, body {
     background: #667eea;
     color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: 25px;
     font-size: 1rem;
     cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.login-form button:hover {
+    background: #5a6fd8;
+    transform: translateY(-1px);
 }
 
 .error-message {
     color: #e74c3c;
     margin-top: 0.5rem;
     min-height: 1.2rem;
+    font-size: 0.9rem;
 }
 
 /* Loading Screen */
 .loading-container {
     background: white;
     padding: 2rem;
-    border-radius: 15px;
+    border-radius: 20px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     text-align: center;
     width: 100%;
@@ -104,12 +121,12 @@ html, body {
     100% { transform: rotate(360deg); }
 }
 
-/* Chat Screen - FIXED LAYOUT */
+/* Chat Screen - WhatsApp-like Layout */
 #chat-screen.active {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: white;
+    background: #e5ddd5;
     position: fixed;
     top: 0;
     left: 0;
@@ -118,7 +135,7 @@ html, body {
 }
 
 .chat-header {
-    background: #667eea;
+    background: #075e54;
     color: white;
     padding: 1rem;
     display: flex;
@@ -126,10 +143,12 @@ html, body {
     align-items: center;
     flex-shrink: 0;
     height: 70px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .chat-header h2 {
     font-size: 1.3rem;
+    font-weight: 500;
 }
 
 .user-info {
@@ -145,9 +164,15 @@ html, body {
     padding: 0.5rem 1rem;
     border-radius: 20px;
     cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
 }
 
-/* Main chat layout - CRITICAL FIX */
+#logout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Main chat layout */
 .chat-main {
     display: flex;
     flex: 1;
@@ -156,58 +181,97 @@ html, body {
     position: relative;
 }
 
-/* Users sidebar */
+/* Users sidebar - Mobile Optimized */
 .users-sidebar {
-    width: 280px;
-    background: #f8f9fa;
+    width: 320px;
+    background: white;
     border-right: 1px solid #e9ecef;
-    padding: 1rem;
     overflow-y: auto;
     flex-shrink: 0;
     height: 100%;
 }
 
-.users-sidebar h3 {
-    margin-bottom: 1rem;
+.users-sidebar-header {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.users-sidebar-header h3 {
     color: #333;
+    font-weight: 600;
 }
 
 #users-list {
     list-style: none;
+    padding: 0.5rem;
 }
 
 #users-list li {
     padding: 1rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
     background: white;
     border-radius: 10px;
-    border-left: 4px solid #667eea;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    position: relative;
+    border: 1px solid transparent;
 }
 
 #users-list li.active {
-    background: #667eea;
-    color: white;
+    background: #e3f2fd;
+    border-color: #667eea;
 }
 
 #users-list li:hover {
+    background: #f8f9fa;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .user-status {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
 }
 
 .username {
     font-weight: 500;
+    flex: 1;
 }
 
-/* Chat area - CRITICAL SCROLLING FIX */
+.admin-badge {
+    font-size: 0.8rem;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.admin-chat-btn, .delete-user-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.admin-chat-btn:hover {
+    background: #e3f2fd;
+    transform: scale(1.1);
+}
+
+.delete-user-btn:hover {
+    background: #ffebee;
+    transform: scale(1.1);
+}
+
+/* Chat area - WhatsApp Style */
 .chat-area {
     flex: 1;
     display: flex;
@@ -215,57 +279,49 @@ html, body {
     height: 100%;
     min-height: 0;
     position: relative;
+    background: #e5ddd5;
 }
 
-/* MESSAGES CONTAINER - ULTIMATE SCROLLING FIX */
+/* Messages Container - WhatsApp Background */
 .messages-container {
     flex: 1;
     padding: 1rem;
     overflow-y: auto !important;
-    background: #f8f9fa;
+    background: #e5ddd5;
     min-height: 0;
     height: auto !important;
-    max-height: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23000000' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
     
-    /* CRITICAL SCROLLING PROPERTIES */
     -webkit-overflow-scrolling: touch !important;
     scroll-behavior: smooth;
-    overflow-anchor: none;
-    
-    /* TOUCH OPTIMIZATION */
     touch-action: pan-y;
     -webkit-user-select: none;
     user-select: none;
     
-    /* FORCE SCROLLBAR */
     scrollbar-width: thin;
     scrollbar-color: #667eea #f1f1f1;
 }
 
-/* Webkit Scrollbars - MAKE THEM VISIBLE */
 .messages-container::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
     display: block !important;
-    visibility: visible !important;
 }
 
 .messages-container::-webkit-scrollbar-track {
     background: #f1f1f1;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .messages-container::-webkit-scrollbar-thumb {
-    background: #667eea;
-    border-radius: 4px;
-    opacity: 1 !important;
-    visibility: visible !important;
+    background: #c1c1c1;
+    border-radius: 3px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
-    background: #5a6fd8;
+    background: #a8a8a8;
 }
 
-/* Message styles */
+/* WhatsApp Message Styles */
 .welcome-message {
     text-align: center;
     color: #6c757d;
@@ -273,11 +329,15 @@ html, body {
     padding: 2rem;
 }
 
-.message {
+.welcome-icon {
+    font-size: 3rem;
     margin-bottom: 1rem;
-    padding: 1rem;
-    border-radius: 15px;
-    max-width: 80%;
+    opacity: 0.7;
+}
+
+.message {
+    margin-bottom: 0.5rem;
+    max-width: 70%;
     word-wrap: break-word;
     animation: messageAppear 0.2s ease-out;
 }
@@ -294,37 +354,46 @@ html, body {
 }
 
 .message.sent {
-    background: #667eea;
-    color: white;
     margin-left: auto;
-    border-bottom-right-radius: 5px;
 }
 
 .message.received {
+    margin-right: auto;
+}
+
+.message-content {
+    padding: 0.75rem 1rem;
+    border-radius: 18px;
+    position: relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.message.sent .message-content {
+    background: #dcf8c6;
+    border-bottom-right-radius: 5px;
+}
+
+.message.received .message-content {
     background: white;
-    color: #333;
-    border: 1px solid #e9ecef;
     border-bottom-left-radius: 5px;
 }
 
-.message-header {
-    font-size: 0.8rem;
-    margin-bottom: 0.5rem;
-    opacity: 0.9;
-    font-weight: 600;
+.message-text {
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
 }
 
 .message-time {
     font-size: 0.7rem;
     text-align: right;
-    margin-top: 0.5rem;
     opacity: 0.7;
+    margin-top: 0.25rem;
 }
 
-/* Input area */
+/* Input area - WhatsApp Style */
 .message-input-container {
     padding: 1rem;
-    background: white;
+    background: #f0f0f0;
     border-top: 1px solid #e9ecef;
     flex-shrink: 0;
 }
@@ -332,37 +401,53 @@ html, body {
 .input-group {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
 }
 
 #receiver-select {
-    flex: 0 0 180px;
+    flex: 0 0 150px;
     padding: 0.75rem;
     border: 1px solid #ddd;
-    border-radius: 10px;
+    border-radius: 20px;
     background: white;
+    font-size: 0.9rem;
 }
 
 #message-input {
     flex: 1;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     border: 1px solid #ddd;
-    border-radius: 10px;
+    border-radius: 20px;
     font-size: 1rem;
+    background: white;
+    outline: none;
+}
+
+#message-input:focus {
+    border-color: #667eea;
 }
 
 #send-btn {
     padding: 0.75rem 1.5rem;
-    background: #667eea;
+    background: #075e54;
     color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: 20px;
     cursor: pointer;
     font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+#send-btn:hover:not(:disabled) {
+    background: #064c43;
+    transform: scale(1.05);
 }
 
 #send-btn:disabled {
     background: #ccc;
     cursor: not-allowed;
+    transform: none;
 }
 
 /* Typing indicator */
@@ -373,7 +458,30 @@ html, body {
     display: none;
     background: rgba(255,255,255,0.9);
     border-radius: 10px;
-    margin: 0 1rem;
+    margin: 0 1rem 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+/* Loading indicator for infinite scroll */
+.loading-indicator {
+    text-align: center;
+    padding: 1rem;
+    color: #666;
+    background: rgba(255,255,255,0.8);
+    border-radius: 10px;
+    margin: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.loading-spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
 }
 
 /* SCROLL TO BOTTOM BUTTON */
@@ -381,12 +489,12 @@ html, body {
     position: absolute;
     bottom: 80px;
     right: 20px;
-    background: #667eea;
+    background: #075e54;
     color: white;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     display: none;
@@ -394,11 +502,12 @@ html, body {
     justify-content: center;
     z-index: 90;
     transition: all 0.3s ease;
+    font-size: 1.2rem;
 }
 
 .scroll-to-bottom:hover {
     transform: scale(1.1);
-    background: #5a6fd8;
+    background: #064c43;
 }
 
 /* Mobile responsive */
@@ -410,7 +519,7 @@ html, body {
     
     .users-sidebar {
         width: 100%;
-        height: 120px;
+        height: 140px;
         border-right: none;
         border-bottom: 1px solid #e9ecef;
         overflow-x: auto;
@@ -418,23 +527,37 @@ html, body {
         flex-shrink: 0;
     }
     
+    .users-sidebar-header {
+        padding: 0.75rem;
+    }
+    
     #users-list {
         display: flex;
         overflow-x: auto;
         gap: 0.5rem;
         -webkit-overflow-scrolling: touch;
-        height: 100%;
+        height: 100px;
         align-items: center;
+        padding: 0.5rem;
     }
     
     #users-list li {
         flex: 0 0 auto;
-        min-width: 120px;
+        min-width: 140px;
         margin-bottom: 0;
-        height: 60px;
+        height: 80px;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 0.75rem;
+    }
+    
+    .admin-actions {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
     }
     
     .chat-area {
@@ -443,52 +566,73 @@ html, body {
     }
     
     .input-group {
-        flex-direction: column;
+        flex-direction: row;
     }
     
     #receiver-select {
-        flex: none;
-        width: 100%;
+        flex: 0 0 120px;
+        font-size: 0.8rem;
     }
     
     .message {
-        max-width: 90%;
+        max-width: 85%;
     }
     
     .scroll-to-bottom {
         bottom: 70px;
         right: 10px;
-        width: 45px;
-        height: 45px;
+        width: 50px;
+        height: 50px;
     }
     
     .messages-container {
         padding: 0.5rem;
         -webkit-overflow-scrolling: touch !important;
     }
+    
+    .login-container {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
 }
 
 /* Tablet responsive */
 @media (max-width: 1024px) {
     .users-sidebar {
-        width: 250px;
+        width: 280px;
     }
 }
 
-/* FORCE SCROLLING ON ALL DEVICES */
-@media (max-width: 1200px) {
-    .messages-container {
-        -webkit-overflow-scrolling: touch !important;
-        overflow-y: auto !important;
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .users-sidebar {
+        background: #1e1e1e;
+        color: white;
+    }
+    
+    .users-sidebar-header {
+        background: #2d2d2d;
+    }
+    
+    #users-list li {
+        background: #2d2d2d;
+        color: white;
+    }
+    
+    #users-list li.active {
+        background: #3d3d3d;
+    }
+    
+    #users-list li:hover {
+        background: #3d3d3d;
     }
 }
 
-/* NUCLEAR SCROLLING FIX - FORCE EVERYTHING TO SCROLL */
+/* Ensure scrolling works on all devices */
 .messages-container {
     overflow-y: scroll !important;
 }
 
-/* Ensure the container has proper height calculation */
 .chat-area {
     display: flex !important;
     flex-direction: column !important;

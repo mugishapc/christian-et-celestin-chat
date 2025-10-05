@@ -7,7 +7,15 @@ class ChatApp {
         this.scrollTimeout = null;
         this.typingTimeout = null;
         this.isAtBottom = true;
-        this.scrollPosition = 0;
+        this.isAdmin = false;
+        
+        // Infinite scroll variables
+        this.currentOffset = 0;
+        this.messagesLimit = 50;
+        this.isLoadingMessages = false;
+        this.hasMoreMessages = true;
+        this.allMessages = [];
+        this.isLoadingHistory = false;
         
         this.initializeEventListeners();
         this.initializeScrollSystem();
@@ -30,26 +38,90 @@ class ChatApp {
         document.getElementById('receiver-select').addEventListener('change', (e) => {
             this.selectReceiver(e.target.value);
         });
+
+        // Admin functionality
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-user-btn')) {
+                const username = e.target.dataset.username;
+                this.deleteUser(username);
+            }
+            if (e.target.classList.contains('admin-chat-btn')) {
+                const username = e.target.dataset.username;
+                this.startAdminChat(username);
+            }
+        });
     }
 
     initializeScrollSystem() {
-        // Initialize scroll handling after DOM is ready
         setTimeout(() => {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
-                messagesContainer.addEventListener('scroll', () => this.handleScroll());
+                console.log('🚀 Initializing infinite scroll system...');
                 
-                // Force scrollable container
                 messagesContainer.style.overflowY = 'auto';
                 messagesContainer.style.webkitOverflowScrolling = 'touch';
+                messagesContainer.style.height = '100%';
+                
+                messagesContainer.addEventListener('scroll', () => this.handleInfiniteScroll());
                 
                 this.createScrollToBottomButton();
+                
+                setTimeout(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 100);
             }
-        }, 100);
+        }, 500);
+    }
+
+    handleInfiniteScroll() {
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer || this.isLoadingMessages || !this.hasMoreMessages) return;
+
+        const scrollTop = messagesContainer.scrollTop;
+        const scrollThreshold = 100;
+
+        if (scrollTop <= scrollThreshold && !this.isLoadingHistory) {
+            this.loadMoreMessages();
+        }
+
+        const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
+        const maxPosition = messagesContainer.scrollHeight;
+        const bottomThreshold = 100;
+        
+        this.isAtBottom = (maxPosition - currentPosition) <= bottomThreshold;
+        
+        if (this.scrollToBottomBtn) {
+            this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
+        }
+        
+        this.isScrolling = true;
+        clearTimeout(this.scrollTimeout);
+        this.scrollTimeout = setTimeout(() => {
+            this.isScrolling = false;
+        }, 150);
+    }
+
+    loadMoreMessages() {
+        if (!this.selectedReceiver || this.isLoadingMessages || !this.hasMoreMessages) return;
+
+        this.isLoadingMessages = true;
+        this.showLoadingIndicator();
+
+        const newOffset = this.currentOffset + this.messagesLimit;
+        
+        this.socket.emit('get_more_messages', {
+            user1: this.currentUser,
+            user2: this.selectedReceiver,
+            offset: newOffset,
+            limit: this.messagesLimit
+        });
     }
 
     createScrollToBottomButton() {
-        if (this.scrollToBottomBtn) return;
+        const existingBtn = document.querySelector('.scroll-to-bottom');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
         
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'scroll-to-bottom';
@@ -64,38 +136,24 @@ class ChatApp {
         this.scrollToBottomBtn = scrollBtn;
     }
 
-    handleScroll() {
-        const messagesContainer = document.getElementById('messages-container');
-        if (!messagesContainer) return;
-
-        const threshold = 100;
-        const currentPosition = messagesContainer.scrollTop + messagesContainer.clientHeight;
-        const maxPosition = messagesContainer.scrollHeight;
-        
-        this.isAtBottom = (maxPosition - currentPosition) <= threshold;
-        
-        if (this.scrollToBottomBtn) {
-            this.scrollToBottomBtn.style.display = this.isAtBottom ? 'none' : 'flex';
-        }
-    }
-
     scrollToBottom(force = false) {
         const messagesContainer = document.getElementById('messages-container');
         if (!messagesContainer) return;
 
-        if (force || this.isAtBottom) {
-            setTimeout(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 50);
+        const scrollToBottom = () => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
             setTimeout(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                this.isAtBottom = true;
+                if (this.scrollToBottomBtn) {
+                    this.scrollToBottomBtn.style.display = 'none';
+                }
             }, 100);
-            
-            if (this.scrollToBottomBtn) {
-                this.scrollToBottomBtn.style.display = 'none';
-            }
-            this.isAtBottom = true;
+        };
+
+        if (force || this.isAtBottom) {
+            scrollToBottom();
         }
     }
 
@@ -136,6 +194,7 @@ class ChatApp {
 
         this.socket.on('login_success', (data) => {
             this.currentUser = data.username;
+            this.isAdmin = data.is_admin;
             this.showChatScreen(data.online_users, data.all_users);
         });
 
@@ -151,16 +210,25 @@ class ChatApp {
             this.removeUserFromList(data.username);
         });
 
+        this.socket.on('user_deleted', (data) => {
+            this.removeUserFromList(data.username);
+        });
+
         this.socket.on('new_message', (data) => {
             if (this.isMessageForCurrentConversation(data)) {
                 this.displayMessage(data);
-                this.scrollToBottom();
+                if (this.isAtBottom) {
+                    this.scrollToBottom(true);
+                }
             }
         });
 
         this.socket.on('conversation_history', (data) => {
-            this.displayConversationHistory(data.messages);
-            this.scrollToBottom();
+            this.displayConversationHistory(data.messages, data.has_more);
+        });
+
+        this.socket.on('more_messages', (data) => {
+            this.displayOlderMessages(data.messages, data.has_more);
         });
 
         this.socket.on('user_typing', (data) => {
@@ -172,15 +240,14 @@ class ChatApp {
         document.getElementById('login-screen').classList.remove('active');
         document.getElementById('chat-screen').classList.add('active');
         
-        document.getElementById('current-user').textContent = this.currentUser;
+        document.getElementById('current-user').textContent = this.currentUser + (this.isAdmin ? ' (Admin)' : '');
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
-        // Initialize scrolling system
         setTimeout(() => {
             this.initializeScrollSystem();
             this.scrollToBottom(true);
-        }, 200);
+        }, 1000);
     }
 
     populateUsersList(onlineUsers, allUsers) {
@@ -201,19 +268,31 @@ class ChatApp {
         
         // Add all users (including offline)
         if (allUsers && allUsers.length > 0) {
-            allUsers.forEach(user => {
+            allUsers.forEach(userData => {
+                const user = userData.username;
+                const isOnline = userData.is_online;
                 if (user !== this.currentUser && (!onlineUsers || !onlineUsers.includes(user))) {
-                    this.addUserToUI(user, usersList, receiverSelect, false);
+                    this.addUserToUI(user, usersList, receiverSelect, isOnline, userData.is_admin);
                 }
             });
         }
     }
 
-    addUserToUI(username, usersList, receiverSelect, isOnline) {
+    addUserToUI(username, usersList, receiverSelect, isOnline, isAdmin = false) {
         // Add to users list
         const li = document.createElement('li');
-        li.innerHTML = `<span class="user-status">${isOnline ? '🟢' : '⚫'}</span>
-                       <span class="username">${username}</span>`;
+        li.innerHTML = `
+            <span class="user-status">${isOnline ? '🟢' : '⚫'}</span>
+            <span class="username">${username}</span>
+            ${isAdmin ? '<span class="admin-badge">👑</span>' : ''}
+            ${this.isAdmin && username !== this.currentUser ? `
+                <div class="admin-actions">
+                    <button class="admin-chat-btn" data-username="${username}" title="Chat as this user">💬</button>
+                    <button class="delete-user-btn" data-username="${username}" title="Delete user">🗑️</button>
+                </div>
+            ` : ''}
+        `;
+        
         li.addEventListener('click', () => this.selectReceiver(username));
         if (!isOnline) {
             li.style.opacity = '0.7';
@@ -223,7 +302,7 @@ class ChatApp {
         // Add to receiver select
         const option = document.createElement('option');
         option.value = username;
-        option.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
+        option.textContent = `${username} ${isOnline ? '🟢' : '⚫'} ${isAdmin ? '👑' : ''}`;
         receiverSelect.appendChild(option);
     }
 
@@ -233,7 +312,6 @@ class ChatApp {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        // Check if user already exists in the list
         const existingUser = Array.from(usersList.children).find(li => 
             li.querySelector('.username').textContent === username
         );
@@ -241,7 +319,6 @@ class ChatApp {
         if (!existingUser) {
             this.addUserToUI(username, usersList, receiverSelect, isOnline);
         } else {
-            // Update online status
             const statusSpan = existingUser.querySelector('.user-status');
             statusSpan.textContent = isOnline ? '🟢' : '⚫';
             
@@ -251,11 +328,10 @@ class ChatApp {
                 existingUser.style.opacity = '1';
             }
             
-            // Update select option
             const options = Array.from(receiverSelect.options);
             const existingOption = options.find(opt => opt.value === username);
             if (existingOption) {
-                existingOption.textContent = `${username} ${isOnline ? '(online)' : '(offline)'}`;
+                existingOption.textContent = `${username} ${isOnline ? '🟢' : '⚫'}`;
             }
         }
     }
@@ -264,7 +340,6 @@ class ChatApp {
         const usersList = document.getElementById('users-list');
         const receiverSelect = document.getElementById('receiver-select');
         
-        // Remove from users list
         const userItems = Array.from(usersList.children);
         const userItem = userItems.find(li => 
             li.querySelector('.username').textContent === username
@@ -273,14 +348,12 @@ class ChatApp {
             userItem.remove();
         }
         
-        // Update to offline in select
         const options = Array.from(receiverSelect.options);
         const userOption = options.find(opt => opt.value === username);
         if (userOption) {
-            userOption.textContent = `${username} (offline)`;
+            userOption.remove();
         }
         
-        // If the removed user was the selected receiver, clear selection
         if (this.selectedReceiver === username) {
             this.selectedReceiver = null;
             document.getElementById('receiver-select').value = '';
@@ -291,7 +364,12 @@ class ChatApp {
     selectReceiver(username) {
         this.selectedReceiver = username;
         
-        // Update UI
+        // Reset infinite scroll
+        this.currentOffset = 0;
+        this.hasMoreMessages = true;
+        this.allMessages = [];
+        this.isLoadingMessages = false;
+        
         document.getElementById('receiver-select').value = username;
         
         const messageInput = document.getElementById('message-input');
@@ -303,8 +381,6 @@ class ChatApp {
             messageInput.focus();
             
             this.loadConversationHistory(username);
-            
-            // Update active state in users list
             this.updateUsersListActiveState(username);
         } else {
             messageInput.disabled = true;
@@ -329,15 +405,21 @@ class ChatApp {
 
     loadConversationHistory(otherUser) {
         if (this.socket && otherUser) {
+            this.isLoadingHistory = true;
             this.socket.emit('get_conversation', {
                 user1: this.currentUser,
-                user2: otherUser
+                user2: otherUser,
+                limit: this.messagesLimit,
+                offset: 0
             });
         }
     }
 
-    displayConversationHistory(messages) {
+    displayConversationHistory(messages, hasMore) {
+        this.isLoadingHistory = false;
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+        
         messagesContainer.innerHTML = '';
         
         if (messages.length === 0) {
@@ -345,11 +427,82 @@ class ChatApp {
             return;
         }
         
+        this.allMessages = messages;
         messages.forEach(message => this.displayMessage(message));
+        
+        this.currentOffset = messages.length;
+        this.hasMoreMessages = hasMore;
         
         setTimeout(() => {
             this.scrollToBottom(true);
-        }, 100);
+        }, 200);
+    }
+
+    displayOlderMessages(messages, hasMore) {
+        this.isLoadingMessages = false;
+        this.hideLoadingIndicator();
+        
+        if (messages.length === 0) {
+            this.hasMoreMessages = false;
+            return;
+        }
+
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
+        const oldScrollHeight = messagesContainer.scrollHeight;
+        const oldScrollTop = messagesContainer.scrollTop;
+
+        messages.forEach(message => {
+            this.prependMessage(message);
+        });
+
+        this.allMessages = [...messages, ...this.allMessages];
+
+        const newScrollHeight = messagesContainer.scrollHeight;
+        messagesContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+
+        this.currentOffset += messages.length;
+        this.hasMoreMessages = hasMore;
+    }
+
+    prependMessage(message) {
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
+        const messageElement = this.createMessageElement(message);
+        
+        const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.style.display = 'none';
+        }
+        
+        if (messagesContainer.firstChild) {
+            messagesContainer.insertBefore(messageElement, messagesContainer.firstChild);
+        } else {
+            messagesContainer.appendChild(messageElement);
+        }
+    }
+
+    showLoadingIndicator() {
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+
+        this.hideLoadingIndicator();
+
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'loading-indicator';
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.innerHTML = '<div class="loading-spinner-small"></div> Loading older messages...';
+        
+        messagesContainer.insertBefore(loadingIndicator, messagesContainer.firstChild);
+    }
+
+    hideLoadingIndicator() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
     }
 
     sendMessage() {
@@ -364,21 +517,25 @@ class ChatApp {
             message: message
         });
         
-        // Stop typing indicator
         this.stopTyping();
-        
         messageInput.value = '';
         messageInput.focus();
     }
 
     displayMessage(message) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
         
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.style.display = 'none';
         }
         
+        const messageElement = this.createMessageElement(message);
+        messagesContainer.appendChild(messageElement);
+    }
+
+    createMessageElement(message) {
         const messageElement = document.createElement('div');
         messageElement.className = `message ${message.sender === this.currentUser ? 'sent' : 'received'}`;
         
@@ -388,35 +545,28 @@ class ChatApp {
         });
         
         messageElement.innerHTML = `
-            <div class="message-header">${message.sender}</div>
-            <div class="message-text">${this.escapeHtml(message.text)}</div>
-            <div class="message-time">${time}</div>
+            <div class="message-content">
+                <div class="message-text">${this.escapeHtml(message.text)}</div>
+                <div class="message-time">${time}</div>
+            </div>
         `;
         
-        messagesContainer.appendChild(messageElement);
-        
-        // Scroll to bottom when new message is added
-        if (message.sender === this.currentUser || message.receiver === this.currentUser) {
-            this.scrollToBottom(true);
-        }
+        return messageElement;
     }
 
     handleTyping() {
         if (!this.selectedReceiver) return;
         
-        // Emit typing start
         this.socket.emit('typing', {
             sender: this.currentUser,
             receiver: this.selectedReceiver,
             is_typing: true
         });
         
-        // Clear existing timeout
         if (this.typingTimeout) {
             clearTimeout(this.typingTimeout);
         }
         
-        // Set timeout to stop typing indicator
         this.typingTimeout = setTimeout(() => {
             this.stopTyping();
         }, 1000);
@@ -450,6 +600,8 @@ class ChatApp {
 
     showWelcomeMessage(customMessage = null) {
         const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) return;
+        
         messagesContainer.innerHTML = '';
         
         const welcomeMessage = document.createElement('div');
@@ -459,6 +611,7 @@ class ChatApp {
             welcomeMessage.innerHTML = `<p>${customMessage}</p>`;
         } else {
             welcomeMessage.innerHTML = `
+                <div class="welcome-icon">💬</div>
                 <p>Welcome to Christian Et Celestin Chat!</p>
                 <p>Select a user to start a private conversation</p>
             `;
@@ -474,8 +627,79 @@ class ChatApp {
                (message.sender === this.selectedReceiver && message.receiver === this.currentUser);
     }
 
+    // Admin functions
+    deleteUser(username) {
+        if (!this.isAdmin || !confirm(`Are you sure you want to delete user ${username}?`)) {
+            return;
+        }
+        
+        fetch('/admin/delete_user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                admin_username: this.currentUser,
+                target_username: username
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.showNotification(`User ${username} deleted successfully`);
+            } else {
+                this.showNotification(`Error: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            this.showNotification('Error deleting user', 'error');
+        });
+    }
+
+    startAdminChat(username) {
+        if (!this.isAdmin) return;
+        
+        this.selectedReceiver = username;
+        document.getElementById('receiver-select').value = username;
+        
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        messageInput.focus();
+        
+        this.loadConversationHistory(username);
+        this.updateUsersListActiveState(username);
+        
+        this.showNotification(`Now chatting as admin with ${username}`);
+    }
+
+    showNotification(message, type = 'success') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#e74c3c' : '#2ecc71'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+
     showLoginError(message) {
-        // Reset to login screen and show error
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
@@ -488,13 +712,11 @@ class ChatApp {
             </div>
         `;
         
-        // Re-attach event listeners
         document.getElementById('login-btn').addEventListener('click', () => this.login());
         document.getElementById('username-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
         });
         
-        // Focus on input
         document.getElementById('username-input').focus();
     }
 
@@ -505,11 +727,11 @@ class ChatApp {
         
         this.currentUser = null;
         this.selectedReceiver = null;
+        this.isAdmin = false;
         
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('login-screen').classList.add('active');
         
-        // Reset login form
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
@@ -522,13 +744,11 @@ class ChatApp {
             </div>
         `;
         
-        // Re-attach event listeners
         document.getElementById('login-btn').addEventListener('click', () => this.login());
         document.getElementById('username-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
         });
         
-        // Focus on input
         document.getElementById('username-input').focus();
     }
 
@@ -539,7 +759,17 @@ class ChatApp {
     }
 }
 
-// Initialize the app when DOM is loaded
+// Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
+    console.log('🚀 Starting Christian Et Celestin Chat App...');
+    const app = new ChatApp();
+    
+    setTimeout(() => {
+        const messagesContainer = document.getElementById('messages-container');
+        if (messagesContainer) {
+            console.log('🔧 Applying final scroll fixes...');
+            messagesContainer.style.overflowY = 'auto';
+            messagesContainer.style.webkitOverflowScrolling = 'touch';
+        }
+    }, 2000);
 });
