@@ -394,7 +394,7 @@ html, body {
     margin-top: 0.25rem;
 }
 
-/* Input area - WhatsApp Style */
+/* Input area - WhatsApp Style - FIXED FOR MOBILE */
 .message-input-container {
     padding: 1rem;
     background: #f0f0f0;
@@ -523,7 +523,7 @@ html, body {
     background: #064c43;
 }
 
-/* MOBILE RESPONSIVE - FIXED LAYOUT */
+/* MOBILE RESPONSIVE - COMPLETELY FIXED LAYOUT */
 @media (max-width: 768px) {
     .chat-main {
         flex-direction: column;
@@ -599,7 +599,7 @@ html, body {
         padding: 0.2rem;
     }
     
-    /* Chat area - Takes full screen when active */
+    /* Chat area - Takes full screen when active - FIXED */
     .chat-area {
         flex: 1;
         min-height: 0;
@@ -625,20 +625,20 @@ html, body {
         padding-bottom: 0;
     }
     
-    /* Input area - Always visible at bottom with proper spacing - FIXED */
+    /* Input area - COMPLETELY FIXED FOR MOBILE */
     .message-input-container {
-        position: sticky;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: #f0f0f0;
-        border-top: 1px solid #ddd;
-        padding: 0.75rem;
-        z-index: 1000;
+        position: sticky !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: #f0f0f0 !important;
+        border-top: 1px solid #ddd !important;
+        padding: 0.75rem !important;
+        z-index: 1000 !important;
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
-        margin-top: auto;
+        margin-top: auto !important;
     }
     
     .input-group {
@@ -661,6 +661,12 @@ html, body {
         font-size: 0.9rem;
         min-height: 44px;
         line-height: 1.4;
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 20px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
     
     #send-btn {
@@ -669,6 +675,13 @@ html, body {
         min-height: 44px;
         flex-shrink: 0;
         white-space: nowrap;
+        background: #075e54 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 20px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
     
     .message {
@@ -730,8 +743,13 @@ html, body {
             position: sticky !important;
             bottom: 0 !important;
         }
-    }
+        
+        #message-input {
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 20px !important;
 }
+
 
 /* Mobile landscape optimization */
 @media (max-width: 768px) and (orientation: landscape) {
@@ -750,7 +768,7 @@ html, body {
     }
     
     .message-input-container {
-        padding: 0.5rem;
+        padding: 0.5rem !important;
     }
     
     .chat-area.mobile-active {
