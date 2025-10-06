@@ -24,6 +24,7 @@
     <div id="chat-screen" class="screen">
         <div class="chat-container">
             <header class="chat-header">
+                <button class="back-to-users" style="display: none;">←</button>
                 <h2>MugiChat</h2>
                 <div class="user-info">
                     <span id="current-user"></span>
@@ -52,22 +53,25 @@
                         <span id="typing-user"></span> is typing...
                     </div>
 
-                    <div class="message-input-container">
-                        <div class="input-group">
-                            <select id="receiver-select">
+                    <!-- INPUT AREA - COMPLETELY VISIBLE WITH ALL BUTTONS -->
+                    <div class="message-input-container" style="display: flex; visibility: visible; opacity: 1;">
+                        <div class="input-group" style="display: flex; visibility: visible; opacity: 1;">
+                            <select id="receiver-select" style="display: block; visibility: visible; opacity: 1;">
                                 <option value="">Select a user to chat with</option>
                             </select>
-                            <!-- MEDIA BUTTONS ADDED DIRECTLY TO HTML -->
-                            <div class="media-buttons">
-                                <button class="image-upload-btn" title="Send image">
+                            
+                            <!-- MEDIA BUTTONS - ALWAYS VISIBLE -->
+                            <div class="media-buttons" style="display: flex; visibility: visible; opacity: 1;">
+                                <button class="image-upload-btn" title="Send image" style="display: flex; visibility: visible; opacity: 1;">
                                     📷
                                 </button>
-                                <button class="voice-record-btn" title="Record voice message">
+                                <button class="voice-record-btn" title="Record voice message" style="display: flex; visibility: visible; opacity: 1;">
                                     🎤
                                 </button>
                             </div>
-                            <input type="text" id="message-input" placeholder="Type your message..." disabled>
-                            <button id="send-btn" disabled>Send</button>
+                            
+                            <input type="text" id="message-input" placeholder="Select a user to start chatting" disabled style="display: block; visibility: visible; opacity: 1;">
+                            <button id="send-btn" disabled style="display: block; visibility: visible; opacity: 1;">Send</button>
                         </div>
                     </div>
                 </main>
