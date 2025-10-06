@@ -23,6 +23,7 @@ class ChatApp {
         this.audioChunks = [];
         this.recordingTimeout = null;
         this.maxRecordingTime = 60000; // 60 seconds max
+        this.recordingTimer = null;
         
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
@@ -37,6 +38,9 @@ class ChatApp {
         this.isMobile = window.innerWidth <= 768;
         window.addEventListener('resize', () => {
             this.isMobile = window.innerWidth <= 768;
+            if (this.isMobile && this.currentUser) {
+                this.fixMobileViewport();
+            }
         });
     }
 
@@ -305,7 +309,7 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
-        // Add voice and image buttons to input area
+        // Add media buttons functionality
         this.addMediaButtons();
         
         // Add back button for mobile
@@ -313,38 +317,64 @@ class ChatApp {
             this.addMobileBackButton();
         }
         
+        // MOBILE FIX: Ensure proper layout calculation
         setTimeout(() => {
             this.initializeScrollSystem();
-        }, 1000);
+            this.fixMobileViewport();
+        }, 100);
+    }
+
+    // Add this new method to fix mobile viewport issues
+    fixMobileViewport() {
+        if (!this.isMobile) return;
+        
+        const messagesContainer = document.getElementById('messages-container');
+        const inputContainer = document.querySelector('.message-input-container');
+        
+        if (messagesContainer && inputContainer) {
+            // Calculate available height for messages
+            const headerHeight = document.querySelector('.chat-header').offsetHeight;
+            const inputHeight = inputContainer.offsetHeight;
+            const viewportHeight = window.innerHeight;
+            
+            const messagesHeight = viewportHeight - headerHeight - inputHeight;
+            messagesContainer.style.height = `${messagesHeight}px`;
+            messagesContainer.style.maxHeight = `${messagesHeight}px`;
+            
+            // Force scroll to bottom
+            setTimeout(() => {
+                this.scrollToBottom(true);
+            }, 200);
+        }
     }
 
     addMediaButtons() {
-    // Buttons are now in HTML, just ensure event listeners are set up
-    const imageInput = document.getElementById('image-input');
-    const imageUploadBtn = document.querySelector('.image-upload-btn');
-    const voiceRecordBtn = document.querySelector('.voice-record-btn');
-    
-    if (imageUploadBtn && !imageUploadBtn.hasEventListener) {
-        imageUploadBtn.addEventListener('click', () => {
-            document.getElementById('image-input').click();
-        });
-        imageUploadBtn.hasEventListener = true;
+        // Buttons are now in HTML, just ensure event listeners are set up
+        const imageInput = document.getElementById('image-input');
+        const imageUploadBtn = document.querySelector('.image-upload-btn');
+        const voiceRecordBtn = document.querySelector('.voice-record-btn');
+        
+        if (imageUploadBtn && !imageUploadBtn.hasEventListener) {
+            imageUploadBtn.addEventListener('click', () => {
+                document.getElementById('image-input').click();
+            });
+            imageUploadBtn.hasEventListener = true;
+        }
+        
+        if (voiceRecordBtn && !voiceRecordBtn.hasEventListener) {
+            voiceRecordBtn.addEventListener('click', () => {
+                this.toggleVoiceRecording();
+            });
+            voiceRecordBtn.hasEventListener = true;
+        }
+        
+        if (imageInput && !imageInput.hasEventListener) {
+            imageInput.addEventListener('change', (e) => {
+                this.handleImageUpload(e.target.files[0]);
+            });
+            imageInput.hasEventListener = true;
+        }
     }
-    
-    if (voiceRecordBtn && !voiceRecordBtn.hasEventListener) {
-        voiceRecordBtn.addEventListener('click', () => {
-            this.toggleVoiceRecording();
-        });
-        voiceRecordBtn.hasEventListener = true;
-    }
-    
-    if (imageInput && !imageInput.hasEventListener) {
-        imageInput.addEventListener('change', (e) => {
-            this.handleImageUpload(e.target.files[0]);
-        });
-        imageInput.hasEventListener = true;
-    }
-}
 
     addMobileBackButton() {
         const chatHeader = document.querySelector('.chat-header');
@@ -554,6 +584,7 @@ class ChatApp {
         // Ensure input visibility
         setTimeout(() => {
             this.ensureInputVisibility();
+            this.fixMobileViewport();
             
             // Focus on input
             const messageInput = document.getElementById('message-input');
@@ -962,6 +993,12 @@ class ChatApp {
             recordingInterface.remove();
         }
         document.querySelector('.input-group').style.display = 'flex';
+        
+        // Clear recording timer
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
     }
 
     startRecordingTimer() {
@@ -1207,6 +1244,11 @@ class ChatApp {
     logout() {
         if (this.socket) {
             this.socket.disconnect();
+        }
+        
+        // Stop any ongoing recording
+        if (this.isRecording) {
+            this.cancelVoiceRecording();
         }
         
         this.currentUser = null;
