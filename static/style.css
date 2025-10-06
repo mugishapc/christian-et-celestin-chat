@@ -132,6 +132,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
+    overflow: hidden;
 }
 
 .chat-header {
@@ -144,7 +145,7 @@ html, body {
     flex-shrink: 0;
     height: 70px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    z-index: 100;
+    z-index: 1000;
 }
 
 .chat-header h2 {
@@ -286,7 +287,7 @@ html, body {
     background: #e5ddd5;
 }
 
-/* Messages Container - WhatsApp Background - MOBILE OPTIMIZED */
+/* Messages Container - WhatsApp Background - FIXED FOR MOBILE */
 .messages-container {
     flex: 1;
     padding: 1rem;
@@ -294,9 +295,9 @@ html, body {
     background: #e5ddd5;
     min-height: 0;
     height: auto !important;
-    /* Mobile-optimized smaller background pattern */
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23000000' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
-    background-size: 60px 60px;
+    /* Very subtle background pattern that won't break layout */
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 40c11 0 20-9 20-20S31 0 20 0 0 9 0 20s9 20 20 20zm0-2c9.94 0 18-8.06 18-18S29.94 2 20 2 2 10.06 2 20s8.06 18 18 18z' fill='%23000000' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-size: 40px 40px;
     
     -webkit-overflow-scrolling: touch !important;
     scroll-behavior: smooth;
@@ -605,7 +606,7 @@ html, body {
     background: #064c43;
 }
 
-/* Input area - WhatsApp Style - FIXED POSITION */
+/* INPUT AREA - CRITICAL FIX - ALWAYS VISIBLE */
 .message-input-container {
     padding: 1rem;
     background: #f0f0f0;
@@ -617,6 +618,8 @@ html, body {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    width: 100%;
+    min-height: 80px;
 }
 
 .input-group {
@@ -712,7 +715,7 @@ html, body {
 /* SCROLL TO BOTTOM BUTTON */
 .scroll-to-bottom {
     position: absolute;
-    bottom: 80px;
+    bottom: 90px;
     right: 20px;
     background: #075e54;
     color: white;
@@ -735,8 +738,16 @@ html, body {
     background: #064c43;
 }
 
-/* MOBILE RESPONSIVE - FIXED INPUT AREA */
+/* MOBILE RESPONSIVE - EMERGENCY FIX */
 @media (max-width: 768px) {
+    /* Ensure body doesn't scroll */
+    body {
+        overflow: hidden;
+        height: 100vh;
+        position: fixed;
+        width: 100%;
+    }
+    
     .chat-main {
         flex-direction: column;
         height: calc(100vh - 70px);
@@ -826,7 +837,7 @@ html, body {
         display: flex !important;
     }
     
-    /* MOBILE FIX: Messages container with proper spacing */
+    /* EMERGENCY FIX: Messages container with proper spacing */
     .messages-container {
         flex: 1;
         padding: 0.5rem;
@@ -835,12 +846,13 @@ html, body {
         height: auto !important;
         min-height: 0;
         margin-bottom: 0;
-        padding-bottom: 80px; /* Space for fixed input area */
-        /* Even smaller background pattern for mobile */
-        background-size: 40px 40px;
+        padding-bottom: 90px; /* CRITICAL: Space for fixed input area */
+        /* Minimal background for mobile */
+        background-image: none; /* Remove background on mobile to prevent layout issues */
+        background: #e5ddd5; /* Solid color instead */
     }
     
-    /* CRITICAL FIX: Input area FIXED at bottom on mobile */
+    /* EMERGENCY FIX: Input area ALWAYS VISIBLE on mobile */
     .message-input-container {
         position: fixed !important;
         bottom: 0 !important;
@@ -855,6 +867,8 @@ html, body {
         opacity: 1 !important;
         margin-top: auto !important;
         height: auto !important;
+        min-height: 70px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
     }
     
     .input-group {
@@ -920,7 +934,7 @@ html, body {
         padding: 1.5rem;
     }
     
-    /* Media buttons mobile */
+    /* Media buttons mobile - ALWAYS VISIBLE */
     .media-buttons {
         gap: 0.25rem;
         display: flex !important;
@@ -983,14 +997,6 @@ html, body {
         left: 0;
         right: 0;
         bottom: 0;
-    }
-    
-    /* Ensure body doesn't scroll on mobile */
-    body {
-        overflow: hidden;
-        height: 100vh;
-        position: fixed;
-        width: 100%;
     }
 }
 
