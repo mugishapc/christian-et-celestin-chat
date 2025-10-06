@@ -17,6 +17,13 @@ class ChatApp {
         this.allMessages = [];
         this.isLoadingHistory = false;
         
+        // Voice recording variables
+        this.isRecording = false;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.recordingTimeout = null;
+        this.maxRecordingTime = 60000; // 60 seconds max
+        
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
         this.mobileChatActive = false;
@@ -94,7 +101,31 @@ class ChatApp {
             if (e.target.classList.contains('back-to-users') || e.target.closest('.back-to-users')) {
                 this.showUsersListOnMobile();
             }
+            
+            // Voice message buttons
+            if (e.target.classList.contains('voice-record-btn') || e.target.closest('.voice-record-btn')) {
+                this.toggleVoiceRecording();
+            }
+            if (e.target.classList.contains('cancel-voice-btn') || e.target.closest('.cancel-voice-btn')) {
+                this.cancelVoiceRecording();
+            }
+            if (e.target.classList.contains('send-voice-btn') || e.target.closest('.send-voice-btn')) {
+                this.sendVoiceMessage();
+            }
+            
+            // Image upload
+            if (e.target.classList.contains('image-upload-btn') || e.target.closest('.image-upload-btn')) {
+                document.getElementById('image-input').click();
+            }
         });
+
+        // Image upload handler
+        const imageInput = document.getElementById('image-input');
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                this.handleImageUpload(e.target.files[0]);
+            });
+        }
     }
 
     initializeScrollSystem() {
@@ -274,6 +305,9 @@ class ChatApp {
         this.populateUsersList(onlineUsers, allUsers);
         this.showWelcomeMessage();
         
+        // Add voice and image buttons to input area
+        this.addMediaButtons();
+        
         // Add back button for mobile
         if (this.isMobile) {
             this.addMobileBackButton();
@@ -282,6 +316,40 @@ class ChatApp {
         setTimeout(() => {
             this.initializeScrollSystem();
         }, 1000);
+    }
+
+    addMediaButtons() {
+        const inputGroup = document.querySelector('.input-group');
+        if (!inputGroup) return;
+
+        // Check if buttons already exist
+        if (document.getElementById('image-input')) return;
+
+        // Create image upload input
+        const imageInput = document.createElement('input');
+        imageInput.type = 'file';
+        imageInput.id = 'image-input';
+        imageInput.accept = 'image/*';
+        imageInput.style.display = 'none';
+        document.body.appendChild(imageInput);
+
+        // Create media buttons container
+        const mediaButtons = document.createElement('div');
+        mediaButtons.className = 'media-buttons';
+        mediaButtons.innerHTML = `
+            <button class="image-upload-btn" title="Send image">
+                📷
+            </button>
+            <button class="voice-record-btn" title="Record voice message">
+                🎤
+            </button>
+        `;
+
+        // Insert before the message input
+        const messageInput = document.getElementById('message-input');
+        if (messageInput && messageInput.parentNode) {
+            messageInput.parentNode.insertBefore(mediaButtons, messageInput);
+        }
     }
 
     addMobileBackButton() {
@@ -657,7 +725,8 @@ class ChatApp {
         this.socket.emit('send_message', {
             sender: this.currentUser,
             receiver: this.selectedReceiver,
-            message: message
+            message: message,
+            message_type: 'text'
         });
         
         this.stopTyping();
@@ -691,14 +760,283 @@ class ChatApp {
             minute: '2-digit'
         });
         
-        messageElement.innerHTML = `
-            <div class="message-content">
-                <div class="message-text">${this.escapeHtml(message.text)}</div>
-                <div class="message-time">${time}</div>
+        let messageContent = '';
+        
+        if (message.message_type === 'image') {
+            messageContent = `
+                <div class="message-content">
+                    <div class="image-message">
+                        <img src="${message.file_url}" alt="Shared image" onclick="this.classList.toggle('expanded')">
+                        <div class="image-caption">${this.escapeHtml(message.text || '')}</div>
+                    </div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+        } else if (message.message_type === 'voice') {
+            const duration = this.formatVoiceDuration(message.file_size);
+            messageContent = `
+                <div class="message-content">
+                    <div class="voice-message">
+                        <button class="play-voice-btn" onclick="chatApp.playVoiceMessage('${message.file_url}')">
+                            ▶️
+                        </button>
+                        <div class="voice-waveform">
+                            <div class="voice-wave"></div>
+                            <div class="voice-duration">${duration}</div>
+                        </div>
+                    </div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+        } else {
+            messageContent = `
+                <div class="message-content">
+                    <div class="message-text">${this.escapeHtml(message.text)}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+        }
+        
+        messageElement.innerHTML = messageContent;
+        return messageElement;
+    }
+
+    formatVoiceDuration(fileSize) {
+        // Simple duration calculation based on file size (approximate)
+        const durationInSeconds = Math.max(1, Math.round(fileSize / 16000));
+        const minutes = Math.floor(durationInSeconds / 60);
+        const seconds = durationInSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    playVoiceMessage(audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(e => {
+            console.error('Error playing voice message:', e);
+            this.showNotification('Error playing voice message', 'error');
+        });
+    }
+
+    // Voice Recording Functions
+    async toggleVoiceRecording() {
+        if (this.isRecording) {
+            this.stopVoiceRecording();
+        } else {
+            await this.startVoiceRecording();
+        }
+    }
+
+    async startVoiceRecording() {
+        if (!this.selectedReceiver) {
+            this.showNotification('Select a user to send voice message', 'error');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+            
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+            
+            this.mediaRecorder.onstop = () => {
+                this.showVoiceRecordingControls();
+            };
+            
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            this.showRecordingInterface();
+            
+            // Auto stop after max recording time
+            this.recordingTimeout = setTimeout(() => {
+                this.stopVoiceRecording();
+            }, this.maxRecordingTime);
+            
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            this.showNotification('Error accessing microphone', 'error');
+        }
+    }
+
+    stopVoiceRecording() {
+        if (this.mediaRecorder && this.isRecording) {
+            this.mediaRecorder.stop();
+            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            this.isRecording = false;
+            clearTimeout(this.recordingTimeout);
+        }
+    }
+
+    cancelVoiceRecording() {
+        this.stopVoiceRecording();
+        this.hideRecordingInterface();
+        this.audioChunks = [];
+    }
+
+    async sendVoiceMessage() {
+        if (this.audioChunks.length === 0) {
+            this.showNotification('No recording to send', 'error');
+            return;
+        }
+
+        try {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'voice-message.webm');
+            formData.append('file_type', 'voice');
+
+            this.showNotification('Sending voice message...', 'info');
+
+            const response = await fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.socket.emit('send_message', {
+                    sender: this.currentUser,
+                    receiver: this.selectedReceiver,
+                    message: 'Voice message',
+                    message_type: 'voice',
+                    file_url: result.file_url,
+                    file_name: result.file_name,
+                    file_size: result.file_size
+                });
+                this.showNotification('Voice message sent');
+            } else {
+                this.showNotification('Error sending voice message: ' + result.error, 'error');
+            }
+
+        } catch (error) {
+            console.error('Error sending voice message:', error);
+            this.showNotification('Error sending voice message', 'error');
+        }
+
+        this.hideRecordingInterface();
+        this.audioChunks = [];
+    }
+
+    showRecordingInterface() {
+        this.hideRecordingInterface();
+        
+        const inputContainer = document.querySelector('.message-input-container');
+        const recordingInterface = document.createElement('div');
+        recordingInterface.className = 'voice-recording-interface';
+        recordingInterface.innerHTML = `
+            <div class="recording-indicator">
+                <div class="recording-pulse"></div>
+                <span>Recording... </span>
+                <span class="recording-timer">0:00</span>
+            </div>
+            <div class="recording-controls">
+                <button class="cancel-voice-btn">Cancel</button>
+                <button class="send-voice-btn">Send</button>
             </div>
         `;
         
-        return messageElement;
+        inputContainer.appendChild(recordingInterface);
+        
+        // Hide normal input
+        document.querySelector('.input-group').style.display = 'none';
+        
+        // Start timer
+        this.startRecordingTimer();
+    }
+
+    showVoiceRecordingControls() {
+        const recordingInterface = document.querySelector('.voice-recording-interface');
+        if (recordingInterface) {
+            recordingInterface.innerHTML = `
+                <div class="recording-preview">
+                    <span>Voice message recorded</span>
+                </div>
+                <div class="recording-controls">
+                    <button class="cancel-voice-btn">Cancel</button>
+                    <button class="send-voice-btn">Send</button>
+                </div>
+            `;
+        }
+    }
+
+    hideRecordingInterface() {
+        const recordingInterface = document.querySelector('.voice-recording-interface');
+        if (recordingInterface) {
+            recordingInterface.remove();
+        }
+        document.querySelector('.input-group').style.display = 'flex';
+    }
+
+    startRecordingTimer() {
+        let seconds = 0;
+        this.recordingTimer = setInterval(() => {
+            seconds++;
+            const timerElement = document.querySelector('.recording-timer');
+            if (timerElement) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                timerElement.textContent = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    // Image Upload Functions
+    async handleImageUpload(file) {
+        if (!file || !this.selectedReceiver) return;
+
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please select an image file', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            this.showNotification('Image size too large (max 10MB)', 'error');
+            return;
+        }
+
+        try {
+            this.showNotification('Uploading image...', 'info');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('file_type', 'image');
+
+            const response = await fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Ask for caption
+                const caption = prompt('Add a caption (optional):') || '';
+                
+                this.socket.emit('send_message', {
+                    sender: this.currentUser,
+                    receiver: this.selectedReceiver,
+                    message: caption,
+                    message_type: 'image',
+                    file_url: result.file_url,
+                    file_name: result.file_name,
+                    file_size: result.file_size
+                });
+                
+                this.showNotification('Image sent');
+            } else {
+                this.showNotification('Error uploading image: ' + result.error, 'error');
+            }
+
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            this.showNotification('Error uploading image', 'error');
+        }
+
+        // Clear file input
+        document.getElementById('image-input').value = '';
     }
 
     handleTyping() {
@@ -836,7 +1174,7 @@ class ChatApp {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${type === 'error' ? '#e74c3c' : '#2ecc71'};
+            background: ${type === 'error' ? '#e74c3c' : type === 'info' ? '#3498db' : '#2ecc71'};
             color: white;
             padding: 12px 20px;
             border-radius: 8px;
@@ -913,6 +1251,8 @@ class ChatApp {
 }
 
 // Initialize the app
+let chatApp;
 document.addEventListener('DOMContentLoaded', () => {
-    new ChatApp();
+    chatApp = new ChatApp();
+    window.chatApp = chatApp; // Make it globally available for onclick handlers
 });

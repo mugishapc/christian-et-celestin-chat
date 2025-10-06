@@ -57,6 +57,7 @@
                             <select id="receiver-select">
                                 <option value="">Select a user to chat with</option>
                             </select>
+                            <!-- Media buttons will be inserted here by JavaScript -->
                             <input type="text" id="message-input" placeholder="Type your message..." disabled>
                             <button id="send-btn" disabled>Send</button>
                         </div>
@@ -65,6 +66,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Hidden file input for image upload -->
+    <input type="file" id="image-input" accept="image/*" style="display: none;">
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

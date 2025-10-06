@@ -9,6 +9,9 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
+import base64
+import uuid
+from werkzeug.utils import secure_filename
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +19,12 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'd29c234ca310aa6990092d4b6cd4c4854585c51e1f73bf4de510adca03f5bc4e'
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Create upload directory if it doesn't exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # Database configuration
@@ -23,6 +32,10 @@ DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-ad
 
 # Admin configuration
 ADMIN_USERNAME = "Mpc"
+
+# Allowed file extensions
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
 
 def get_db_connection():
     """Create and return a database connection"""
@@ -51,13 +64,17 @@ def init_database():
                     )
                 """)
                 
-                # Create messages table
+                # Create messages table with message_type support
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS messages (
                         id SERIAL PRIMARY KEY,
                         sender VARCHAR(50) NOT NULL,
                         receiver VARCHAR(50) NOT NULL,
-                        message_text TEXT NOT NULL,
+                        message_text TEXT,
+                        message_type VARCHAR(20) DEFAULT 'text',
+                        file_path VARCHAR(500),
+                        file_name VARCHAR(255),
+                        file_size INTEGER,
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -73,6 +90,10 @@ def init_database():
                 try:
                     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
                     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE")
+                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(20) DEFAULT 'text'")
+                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_path VARCHAR(500)")
+                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)")
+                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER")
                 except Exception as e:
                     logger.warning(f"Columns may already exist: {e}")
                 
@@ -99,9 +120,62 @@ init_database()
 active_users = {}
 user_sessions = {}  # Track multiple sessions per user
 
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def save_uploaded_file(file, file_type):
+    """Save uploaded file and return file path"""
+    if file and file.filename:
+        # Generate unique filename
+        file_ext = file.filename.rsplit('.', 1)[1].lower()
+        unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
+        filename = secure_filename(unique_filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        file.save(file_path)
+        return file_path, filename, os.path.getsize(file_path)
+    return None, None, 0
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    """Handle file uploads for images and voice messages"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'})
+        
+        file = request.files['file']
+        file_type = request.form.get('file_type', 'image')
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'})
+        
+        if file_type == 'image' and not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
+            return jsonify({'success': False, 'error': 'Invalid image format'})
+        
+        if file_type == 'voice' and not allowed_file(file.filename, ALLOWED_AUDIO_EXTENSIONS):
+            return jsonify({'success': False, 'error': 'Invalid audio format'})
+        
+        file_path, filename, file_size = save_uploaded_file(file, file_type)
+        
+        if file_path:
+            return jsonify({
+                'success': True,
+                'file_path': file_path,
+                'file_url': f'/{file_path}',
+                'file_name': filename,
+                'file_size': file_size
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save file'})
+            
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/users', methods=['GET'])
 def get_users():
@@ -360,7 +434,11 @@ def get_all_users_except(exclude_username):
 def handle_send_message(data):
     sender = data['sender']
     receiver = data['receiver']
-    message_text = data['message']
+    message_text = data.get('message', '')
+    message_type = data.get('message_type', 'text')
+    file_url = data.get('file_url', '')
+    file_name = data.get('file_name', '')
+    file_size = data.get('file_size', 0)
     timestamp = datetime.now().isoformat()
     
     # Allow admin to send messages as any user
@@ -368,7 +446,7 @@ def handle_send_message(data):
         return
     
     # Save message to database
-    message_id = save_message_to_db(sender, receiver, message_text)
+    message_id = save_message_to_db(sender, receiver, message_text, message_type, file_url, file_name, file_size)
     
     if message_id:
         message = {
@@ -376,6 +454,10 @@ def handle_send_message(data):
             'sender': sender,
             'receiver': receiver,
             'text': message_text,
+            'message_type': message_type,
+            'file_url': file_url,
+            'file_name': file_name,
+            'file_size': file_size,
             'timestamp': timestamp
         }
         
@@ -387,21 +469,21 @@ def handle_send_message(data):
         if receiver in active_users:
             emit('new_message', message, room=active_users[receiver])
         
-        logger.info(f"Private message from {sender} to {receiver}")
+        logger.info(f"Private message from {sender} to {receiver} (Type: {message_type})")
     else:
         logger.error(f"Failed to save message from {sender} to {receiver}")
 
-def save_message_to_db(sender, receiver, message_text):
+def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0):
     """Save message to database and return message ID"""
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO messages (sender, receiver, message_text) 
-                    VALUES (%s, %s, %s) 
+                    INSERT INTO messages (sender, receiver, message_text, message_type, file_path, file_name, file_size) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) 
                     RETURNING id
-                """, (sender, receiver, message_text))
+                """, (sender, receiver, message_text, message_type, file_path, file_name, file_size))
                 message_id = cur.fetchone()[0]
                 conn.commit()
                 return message_id
@@ -455,7 +537,8 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, sender, receiver, message_text as text, timestamp
+                    SELECT id, sender, receiver, message_text as text, message_type, 
+                           file_path, file_name, file_size, timestamp
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
                     ORDER BY timestamp DESC
@@ -471,6 +554,10 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                         'sender': msg['sender'],
                         'receiver': msg['receiver'],
                         'text': msg['text'],
+                        'message_type': msg['message_type'],
+                        'file_url': msg['file_path'],
+                        'file_name': msg['file_name'],
+                        'file_size': msg['file_size'],
                         'timestamp': msg['timestamp'].isoformat()
                     })
                 return result[::-1]  # Return in chronological order
@@ -501,12 +588,13 @@ def handle_admin_send_message(data):
     sender = data['sender']
     receiver = data['receiver']
     message_text = data['message']
+    message_type = data.get('message_type', 'text')
     
     if not is_user_admin(admin_username):
         return
     
     # Save message as the specified sender
-    message_id = save_message_to_db(sender, receiver, message_text)
+    message_id = save_message_to_db(sender, receiver, message_text, message_type)
     
     if message_id:
         message = {
@@ -514,6 +602,7 @@ def handle_admin_send_message(data):
             'sender': sender,
             'receiver': receiver,
             'text': message_text,
+            'message_type': message_type,
             'timestamp': datetime.now().isoformat()
         }
         
@@ -538,6 +627,6 @@ if __name__ == '__main__':
     print("🚀 Starting Christian Et Celestin Chat Server...")
     print("📍 Access at: http://localhost:5000")
     print("🗄️  Database: PostgreSQL with Neon")
-    print("🔧 Features: Infinite Scroll, WhatsApp UI, Admin Panel")
+    print("🔧 Features: Infinite Scroll, WhatsApp UI, Admin Panel, Voice Messages, Image Sharing")
     print("👑 Admin Username: Mpc")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
