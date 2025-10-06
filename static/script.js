@@ -319,38 +319,32 @@ class ChatApp {
     }
 
     addMediaButtons() {
-        const inputGroup = document.querySelector('.input-group');
-        if (!inputGroup) return;
-
-        // Check if buttons already exist
-        if (document.getElementById('image-input')) return;
-
-        // Create image upload input
-        const imageInput = document.createElement('input');
-        imageInput.type = 'file';
-        imageInput.id = 'image-input';
-        imageInput.accept = 'image/*';
-        imageInput.style.display = 'none';
-        document.body.appendChild(imageInput);
-
-        // Create media buttons container
-        const mediaButtons = document.createElement('div');
-        mediaButtons.className = 'media-buttons';
-        mediaButtons.innerHTML = `
-            <button class="image-upload-btn" title="Send image">
-                📷
-            </button>
-            <button class="voice-record-btn" title="Record voice message">
-                🎤
-            </button>
-        `;
-
-        // Insert before the message input
-        const messageInput = document.getElementById('message-input');
-        if (messageInput && messageInput.parentNode) {
-            messageInput.parentNode.insertBefore(mediaButtons, messageInput);
-        }
+    // Buttons are now in HTML, just ensure event listeners are set up
+    const imageInput = document.getElementById('image-input');
+    const imageUploadBtn = document.querySelector('.image-upload-btn');
+    const voiceRecordBtn = document.querySelector('.voice-record-btn');
+    
+    if (imageUploadBtn && !imageUploadBtn.hasEventListener) {
+        imageUploadBtn.addEventListener('click', () => {
+            document.getElementById('image-input').click();
+        });
+        imageUploadBtn.hasEventListener = true;
     }
+    
+    if (voiceRecordBtn && !voiceRecordBtn.hasEventListener) {
+        voiceRecordBtn.addEventListener('click', () => {
+            this.toggleVoiceRecording();
+        });
+        voiceRecordBtn.hasEventListener = true;
+    }
+    
+    if (imageInput && !imageInput.hasEventListener) {
+        imageInput.addEventListener('change', (e) => {
+            this.handleImageUpload(e.target.files[0]);
+        });
+        imageInput.hasEventListener = true;
+    }
+}
 
     addMobileBackButton() {
         const chatHeader = document.querySelector('.chat-header');
