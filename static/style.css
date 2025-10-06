@@ -614,7 +614,7 @@ html, body {
     background: #064c43;
 }
 
-/* INPUT AREA - CRITICAL FIX - ALWAYS VISIBLE */
+/* INPUT AREA - DESKTOP STYLING */
 .message-input-container {
     padding: 1rem;
     background: #f0f0f0;
@@ -644,9 +644,6 @@ html, body {
     border-radius: 20px;
     background: white;
     font-size: 0.9rem;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
 }
 
 #message-input {
@@ -658,9 +655,6 @@ html, body {
     background: white;
     outline: none;
     min-height: 44px;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
 }
 
 #message-input:focus {
@@ -679,9 +673,6 @@ html, body {
     transition: all 0.3s ease;
     min-height: 44px;
     white-space: nowrap;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
 }
 
 #send-btn:hover:not(:disabled) {
@@ -755,19 +746,27 @@ html, body {
     background: #064c43;
 }
 
-/* MOBILE RESPONSIVE - EMERGENCY FIX */
+/* ============================================= */
+/* MOBILE RESPONSIVE - EMERGENCY FIX FOR PHONES */
+/* ============================================= */
 @media (max-width: 768px) {
-    /* Ensure body doesn't scroll */
+    /* CRITICAL: Ensure body doesn't scroll and has proper height */
     body {
-        overflow: hidden;
-        height: 100vh;
-        position: fixed;
-        width: 100%;
+        overflow: hidden !important;
+        height: 100vh !important;
+        position: fixed !important;
+        width: 100% !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    html {
+        height: 100vh !important;
+        overflow: hidden !important;
     }
     
     .chat-main {
         flex-direction: column;
-        height: calc(100vh - 70px);
+        height: calc(100vh - 70px) !important;
         position: relative;
     }
     
@@ -854,7 +853,7 @@ html, body {
         display: flex !important;
     }
     
-    /* EMERGENCY FIX: Messages container with proper spacing */
+    /* EMERGENCY FIX: Messages container with LARGE padding for input area */
     .messages-container {
         flex: 1;
         padding: 0.5rem;
@@ -863,27 +862,32 @@ html, body {
         height: auto !important;
         min-height: 0;
         margin-bottom: 0;
-        padding-bottom: 90px; /* CRITICAL: Space for fixed input area */
-        background: #e5ddd5; /* Solid color on mobile */
+        padding-bottom: 120px !important; /* EXTRA LARGE padding for mobile */
+        background: #e5ddd5 !important; /* Solid color on mobile */
+        background-image: none !important; /* Remove pattern on mobile */
     }
     
-    /* EMERGENCY FIX: Input area ALWAYS VISIBLE on mobile */
+    /* ============================================= */
+    /* CRITICAL MOBILE FIX: INPUT AREA - ALWAYS VISIBLE */
+    /* ============================================= */
     .message-input-container {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
         background: #f0f0f0 !important;
-        border-top: 1px solid #ddd !important;
+        border-top: 2px solid #075e54 !important; /* Make border more visible */
         padding: 0.75rem !important;
-        z-index: 1000 !important;
+        z-index: 9999 !important; /* Very high z-index */
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
         margin-top: auto !important;
         height: auto !important;
-        min-height: 70px;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        min-height: 80px !important; /* Taller on mobile */
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.3) !important; /* Strong shadow */
+        transform: translateZ(0); /* Force hardware acceleration */
+        -webkit-transform: translateZ(0);
     }
     
     .input-group {
@@ -891,45 +895,48 @@ html, body {
         gap: 0.5rem;
         width: 100%;
         align-items: center;
-        min-height: 44px;
+        min-height: 50px !important; /* Taller buttons on mobile */
     }
     
     #receiver-select {
         flex: 0 0 120px;
         font-size: 0.8rem;
         padding: 0.6rem;
-        display: none; /* Hide on mobile */
+        display: none !important; /* Hide on mobile */
     }
     
     #message-input {
         flex: 1;
-        padding: 0.6rem 0.8rem;
-        font-size: 0.9rem;
-        min-height: 44px;
+        padding: 0.8rem 1rem !important; /* More padding */
+        font-size: 1rem !important; /* Larger text */
+        min-height: 50px !important; /* Taller input */
         line-height: 1.4;
         background: white !important;
-        border: 1px solid #ddd !important;
-        border-radius: 20px !important;
+        border: 2px solid #ddd !important; /* Thicker border */
+        border-radius: 25px !important;
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         height: auto !important;
+        font-size: 16px !important; /* Prevent zoom on iOS */
     }
     
     #send-btn {
-        padding: 0.6rem 1rem;
-        font-size: 0.9rem;
-        min-height: 44px;
+        padding: 0.8rem 1.2rem !important;
+        font-size: 1rem !important;
+        min-height: 50px !important; /* Taller button */
         flex-shrink: 0;
         white-space: nowrap;
         background: #075e54 !important;
         color: white !important;
         border: none !important;
-        border-radius: 20px !important;
+        border-radius: 25px !important;
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         height: auto !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
     }
     
     .message {
@@ -937,11 +944,13 @@ html, body {
     }
     
     .scroll-to-bottom {
-        bottom: 80px; /* Position above input area */
+        bottom: 100px !important; /* Position above input area */
         right: 10px;
-        width: 40px;
-        height: 40px;
-        font-size: 1rem;
+        width: 45px !important;
+        height: 45px !important;
+        font-size: 1.2rem !important;
+        background: #075e54 !important;
+        z-index: 9998 !important;
     }
     
     .login-container {
@@ -949,28 +958,34 @@ html, body {
         padding: 1.5rem;
     }
     
-    /* Media buttons mobile - ALWAYS VISIBLE */
+    /* Media buttons mobile - LARGER AND MORE VISIBLE */
     .media-buttons {
-        gap: 0.25rem;
+        gap: 0.5rem !important;
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
     }
     
     .image-upload-btn, .voice-record-btn {
-        width: 35px;
-        height: 35px;
-        font-size: 1rem;
+        width: 45px !important; /* Larger buttons */
+        height: 45px !important;
+        font-size: 1.3rem !important; /* Larger icons */
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
+        background: white !important;
+        border: 2px solid #ddd !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
     }
     
     /* Voice recording interface mobile */
     .voice-recording-interface {
         flex-direction: column;
         gap: 0.75rem;
-        padding: 0.75rem;
+        padding: 1rem !important;
+        background: white !important;
+        border: 2px solid #e74c3c !important;
+        margin: 0.5rem 0;
     }
     
     .recording-controls {
@@ -983,23 +998,26 @@ html, body {
     .cancel-voice-btn, .send-voice-btn {
         flex: 1;
         text-align: center;
-        padding: 0.75rem;
+        padding: 1rem !important; /* Larger buttons */
+        font-size: 1rem !important;
+        min-height: 50px !important;
     }
     
     /* Mobile chat active state */
     body.mobile-chat-active {
-        overflow: hidden;
-        height: 100vh;
+        overflow: hidden !important;
+        height: 100vh !important;
     }
     
     /* Ensure proper viewport for mobile */
     #chat-screen.active {
-        height: 100vh;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        height: 100vh !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        overflow: hidden !important;
     }
 }
 
@@ -1011,4 +1029,42 @@ html, body {
     padding: 2rem;
     position: relative;
     z-index: 1;
+}
+
+/* Force input area to be visible on all mobile devices */
+@media (max-width: 768px) and (orientation: portrait) {
+    .message-input-container {
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+    }
+}
+
+/* Extra small phones */
+@media (max-width: 480px) {
+    .message-input-container {
+        min-height: 90px !important; /* Even taller on small phones */
+        padding: 1rem !important;
+    }
+    
+    #message-input {
+        min-height: 55px !important;
+        font-size: 18px !important; /* Even larger text */
+    }
+    
+    #send-btn {
+        min-height: 55px !important;
+        font-size: 1.1rem !important;
+    }
+    
+    .image-upload-btn, .voice-record-btn {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 1.4rem !important;
+    }
+    
+    .messages-container {
+        padding-bottom: 140px !important; /* Even more space */
+    }
 }
