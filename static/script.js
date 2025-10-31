@@ -32,6 +32,9 @@ class ChatApp {
         this.initializeEventListeners();
         this.initializeScrollSystem();
         this.setupMobileDetection();
+        
+        // Force input visibility on init
+        setTimeout(() => this.ensureInputVisibility(), 1000);
     }
 
     setupMobileDetection() {
@@ -40,6 +43,7 @@ class ChatApp {
             this.isMobile = window.innerWidth <= 768;
             if (this.isMobile && this.currentUser) {
                 this.fixMobileViewport();
+                this.ensureInputVisibility();
             }
         });
     }
@@ -81,6 +85,9 @@ class ChatApp {
             
             // Auto-resize textarea (vertical only)
             messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
+            
+            // Ensure visibility when input is focused
+            messageInput.addEventListener('focus', () => this.ensureInputVisibility());
         }
         if (receiverSelect) {
             receiverSelect.addEventListener('change', (e) => {
@@ -149,6 +156,9 @@ class ChatApp {
         // Prevent drag and drop on the whole page
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('drop', (e) => e.preventDefault());
+        
+        // Ensure input visibility when window gains focus
+        window.addEventListener('focus', () => this.ensureInputVisibility());
     }
 
     autoResizeTextarea() {
@@ -354,6 +364,7 @@ class ChatApp {
         setTimeout(() => {
             this.initializeScrollSystem();
             this.fixMobileViewport();
+            this.ensureInputVisibility(); // Force input visibility
         }, 100);
     }
 
@@ -379,6 +390,60 @@ class ChatApp {
                 this.scrollToBottom(true);
             }, 200);
         }
+    }
+
+    // ENSURE INPUT IS VISIBLE - CRITICAL FIX
+    ensureInputVisibility() {
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const inputContainer = document.querySelector('.message-input-container');
+        const inputGroup = document.querySelector('.input-group');
+        
+        // Force visibility of all input elements
+        if (inputContainer) {
+            inputContainer.style.display = 'flex';
+            inputContainer.style.visibility = 'visible';
+            inputContainer.style.opacity = '1';
+            inputContainer.style.position = 'fixed';
+            inputContainer.style.bottom = '0';
+            inputContainer.style.left = '0';
+            inputContainer.style.right = '0';
+            inputContainer.style.zIndex = '9999';
+        }
+        
+        if (inputGroup) {
+            inputGroup.style.display = 'flex';
+            inputGroup.style.visibility = 'visible';
+            inputGroup.style.opacity = '1';
+        }
+        
+        if (messageInput) {
+            messageInput.style.display = 'block';
+            messageInput.style.visibility = 'visible';
+            messageInput.style.opacity = '1';
+            messageInput.style.position = 'relative';
+            messageInput.style.zIndex = '1000';
+        }
+        
+        if (sendBtn) {
+            sendBtn.style.display = 'block';
+            sendBtn.style.visibility = 'visible';
+            sendBtn.style.opacity = '1';
+            sendBtn.style.position = 'relative';
+            sendBtn.style.zIndex = '1001';
+        }
+        
+        // Force a reflow to ensure rendering
+        setTimeout(() => {
+            if (inputContainer) {
+                inputContainer.style.transform = 'translateZ(0)';
+            }
+        }, 50);
+        
+        // Scroll to bottom to ensure input is visible
+        setTimeout(() => {
+            this.scrollToBottom(true);
+        }, 300);
     }
 
     addMediaButtons() {
@@ -562,37 +627,6 @@ class ChatApp {
                 messageInput.focus();
             }
         }
-    }
-
-    // ENSURE INPUT IS VISIBLE
-    ensureInputVisibility() {
-        const messageInput = document.getElementById('message-input');
-        const sendBtn = document.getElementById('send-btn');
-        const inputContainer = document.querySelector('.message-input-container');
-        
-        // Force visibility
-        if (inputContainer) {
-            inputContainer.style.display = 'flex';
-            inputContainer.style.visibility = 'visible';
-            inputContainer.style.opacity = '1';
-        }
-        
-        if (messageInput) {
-            messageInput.style.display = 'block';
-            messageInput.style.visibility = 'visible';
-            messageInput.style.opacity = '1';
-        }
-        
-        if (sendBtn) {
-            sendBtn.style.display = 'block';
-            sendBtn.style.visibility = 'visible';
-            sendBtn.style.opacity = '1';
-        }
-        
-        // Scroll to bottom to ensure input is visible
-        setTimeout(() => {
-            this.scrollToBottom(true);
-        }, 300);
     }
 
     showChatOnMobile() {
@@ -803,6 +837,7 @@ class ChatApp {
         // Keep focus on input after sending
         setTimeout(() => {
             messageInput.focus();
+            this.ensureInputVisibility(); // Re-ensure visibility
         }, 100);
     }
 
@@ -1060,6 +1095,9 @@ class ChatApp {
             clearInterval(this.recordingTimer);
             this.recordingTimer = null;
         }
+        
+        // Re-ensure input visibility
+        this.ensureInputVisibility();
     }
 
     startRecordingTimer() {
