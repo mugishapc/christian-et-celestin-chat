@@ -11,7 +11,7 @@ class ChatApp {
         
         // Infinite scroll variables
         this.currentOffset = 0;
-        this.messagesLimit = 50;
+        this.messagesLimit = 500;
         this.isLoadingMessages = false;
         this.hasMoreMessages = true;
         this.allMessages = [];
@@ -26,7 +26,7 @@ class ChatApp {
         this.recordingTimer = null;
         
         // Mobile state
-        this.isMobile = window.innerWidth <= 768;
+        this.isMobile = window.innerWidth <= 568;
         this.mobileChatActive = false;
         
         this.initializeEventListeners();
@@ -35,9 +35,9 @@ class ChatApp {
     }
 
     setupMobileDetection() {
-        this.isMobile = window.innerWidth <= 768;
+        this.isMobile = window.innerWidth <= 568;
         window.addEventListener('resize', () => {
-            this.isMobile = window.innerWidth <= 768;
+            this.isMobile = window.innerWidth <= 568;
             if (this.isMobile && this.currentUser) {
                 this.fixMobileViewport();
             }
@@ -1209,7 +1209,7 @@ class ChatApp {
             color: white;
             padding: 12px 20px;
             border-radius: 8px;
-            z-index: 1000;
+            z-index: 100;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         `;
         
