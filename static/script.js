@@ -79,7 +79,7 @@ class ChatApp {
             });
             messageInput.addEventListener('input', () => this.handleTyping());
             
-            // Auto-resize textarea
+            // Auto-resize textarea (vertical only)
             messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
         }
         if (receiverSelect) {
@@ -155,13 +155,13 @@ class ChatApp {
         const textarea = document.getElementById('message-input');
         if (textarea) {
             textarea.style.height = 'auto';
-            const newHeight = Math.min(textarea.scrollHeight, 120); // Max height 120px
+            const newHeight = Math.min(textarea.scrollHeight, 100); // Max height 100px for vertical
             textarea.style.height = newHeight + 'px';
             
-            // Adjust container height if needed
+            // Minimal adjustment for container height
             const inputContainer = document.querySelector('.message-input-container');
             if (inputContainer && this.isMobile) {
-                inputContainer.style.minHeight = Math.max(80, newHeight + 40) + 'px';
+                inputContainer.style.minHeight = Math.max(70, newHeight + 30) + 'px';
             }
         }
     }
@@ -790,13 +790,13 @@ class ChatApp {
         
         this.stopTyping();
         messageInput.value = '';
-        messageInput.style.height = 'auto';
+        messageInput.style.height = 'auto'; // Reset height
         
         // Reset input container height on mobile
         if (this.isMobile) {
             const inputContainer = document.querySelector('.message-input-container');
             if (inputContainer) {
-                inputContainer.style.minHeight = '80px';
+                inputContainer.style.minHeight = '70px';
             }
         }
         
