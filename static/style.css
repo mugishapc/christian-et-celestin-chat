@@ -1172,3 +1172,282 @@ html, body {
     background: #3498db;
     color: white;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Offline Queue Styles */
+.online-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.online-status.online {
+    background: #2ecc71;
+    color: white;
+}
+
+.online-status.offline {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Message Status Styles */
+.message-status {
+    font-size: 10px;
+    margin-top: 2px;
+    text-align: right;
+    opacity: 0.7;
+}
+
+.status-queued {
+    color: #f39c12;
+}
+
+.status-sent {
+    color: #3498db;
+}
+
+.status-delivered {
+    color: #2ecc71;
+}
+
+.status-read {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.status-failed {
+    color: #e74c3c;
+}
+
+.status-pending {
+    color: #f39c12;
+}
+
+/* File Placeholder */
+.file-placeholder {
+    background: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Queued Message Indicator */
+.message.queued {
+    opacity: 0.8;
+}
+
+.message.queued .message-content {
+    border-left: 3px solid #f39c12;
+}
+
+/* Offline Queue Panel */
+.offline-queue-panel {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 12px;
+}
+
+.offline-queue-panel.hidden {
+    display: none;
+}
+
+.queued-messages-count {
+    font-weight: bold;
+    color: #e67e22;
+}
+
+/* Retry Button */
+.retry-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    margin-left: 5px;
+}
+
+.retry-btn:hover {
+    background: #c0392b;
+}
+
+/* Network Status Banner */
+.network-status-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #e74c3c;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    z-index: 10001;
+    font-weight: bold;
+}
+
+.network-status-banner.online {
+    background: #2ecc71;
+}
+
+
+/* Message Status Ticks */
+.message-status {
+    font-size: 12px;
+    margin-top: 2px;
+    text-align: right;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.status-queued {
+    color: #f39c12;
+}
+
+.status-sent {
+    color: #95a5a6;
+}
+
+.status-delivered {
+    color: #95a5a6;
+}
+
+.status-delivered::before {
+    content: "✅✅";
+}
+
+.status-read {
+    color: #3498db;
+}
+
+.status-read::before {
+    content: "✅✅";
+}
+
+.status-failed {
+    color: #e74c3c;
+}
+
+/* Online Status Indicator */
+.online-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.online-status.online {
+    background: #2ecc71;
+    color: white;
+}
+
+.online-status.offline {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Message with status */
+.message.sent .message-content {
+    position: relative;
+}
+
+/* File placeholder for offline files */
+.file-placeholder {
+    background: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* WhatsApp-style Message Status */
+.message-status {
+    font-size: 11px;
+    margin-top: 2px;
+    text-align: right;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.status-queued {
+    color: #f39c12;
+}
+
+.status-sending {
+    color: #3498db;
+}
+
+.status-sent {
+    color: #95a5a6;
+}
+
+.status-delivered {
+    color: #95a5a6;
+}
+
+.status-read {
+    color: #3498db;
+}
+
+.status-failed {
+    color: #e74c3c;
+}
+
+/* Online Status Indicator */
+.online-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.online-status.online {
+    background: #2ecc71;
+    color: white;
+}
+
+.online-status.offline {
+    background: #e74c3c;
+    color: white;
+}
+
+/* File Placeholder */
+.file-placeholder {
+    background: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
