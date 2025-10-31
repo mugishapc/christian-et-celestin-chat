@@ -143,6 +143,11 @@ class ChatApp {
                     this.playVoiceMessage(audioUrl);
                 }
             }
+
+            // Scroll to bottom button
+            if (e.target.classList.contains('scroll-to-bottom') || e.target.closest('.scroll-to-bottom')) {
+                this.scrollToBottom(true);
+            }
         });
 
         // Image upload handler
@@ -180,15 +185,17 @@ class ChatApp {
         setTimeout(() => {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
+                // PERFECT SCROLL SETUP
                 messagesContainer.style.overflowY = 'auto';
                 messagesContainer.style.webkitOverflowScrolling = 'touch';
                 
                 messagesContainer.addEventListener('scroll', () => this.handleInfiniteScroll());
                 this.createScrollToBottomButton();
                 
+                // Initial scroll to bottom
                 setTimeout(() => {
                     this.scrollToBottom(true);
-                }, 100);
+                }, 300);
             }
         }, 500);
     }
@@ -242,9 +249,6 @@ class ChatApp {
         scrollBtn.innerHTML = '↓';
         scrollBtn.title = 'Scroll to bottom';
         scrollBtn.style.display = 'none';
-        scrollBtn.addEventListener('click', () => {
-            this.scrollToBottom(true);
-        });
         
         document.querySelector('.chat-area').appendChild(scrollBtn);
         this.scrollToBottomBtn = scrollBtn;
@@ -255,6 +259,7 @@ class ChatApp {
         if (!messagesContainer) return;
 
         if (force || this.isAtBottom) {
+            // PERFECT SCROLL TO BOTTOM
             setTimeout(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 this.isAtBottom = true;
@@ -360,15 +365,14 @@ class ChatApp {
             this.addMobileBackButton();
         }
         
-        // MOBILE FIX: Ensure proper layout calculation
+        // PERFECT SCROLL INITIALIZATION
         setTimeout(() => {
             this.initializeScrollSystem();
             this.fixMobileViewport();
-            this.ensureInputVisibility(); // Force input visibility
+            this.ensureInputVisibility();
         }, 100);
     }
 
-    // Add this new method to fix mobile viewport issues
     fixMobileViewport() {
         if (!this.isMobile) return;
         
@@ -392,7 +396,6 @@ class ChatApp {
         }
     }
 
-    // ENSURE INPUT IS VISIBLE - CRITICAL FIX
     ensureInputVisibility() {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
@@ -404,7 +407,7 @@ class ChatApp {
             inputContainer.style.display = 'flex';
             inputContainer.style.visibility = 'visible';
             inputContainer.style.opacity = '1';
-            inputContainer.style.position = 'fixed';
+            inputContainer.style.position = this.isMobile ? 'fixed' : 'sticky';
             inputContainer.style.bottom = '0';
             inputContainer.style.left = '0';
             inputContainer.style.right = '0';
@@ -426,7 +429,7 @@ class ChatApp {
         }
         
         if (sendBtn) {
-            sendBtn.style.display = 'block';
+            sendBtn.style.display = 'flex';
             sendBtn.style.visibility = 'visible';
             sendBtn.style.opacity = '1';
             sendBtn.style.position = 'relative';
@@ -852,6 +855,13 @@ class ChatApp {
         
         const messageElement = this.createMessageElement(message);
         messagesContainer.appendChild(messageElement);
+        
+        // Auto scroll to bottom if user is at bottom
+        if (this.isAtBottom) {
+            setTimeout(() => {
+                this.scrollToBottom(true);
+            }, 100);
+        }
     }
 
     createMessageElement(message) {
