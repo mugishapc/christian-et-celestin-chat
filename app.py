@@ -29,7 +29,7 @@ ADMIN_USERNAME = "Mpc"
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
 
-# Track received message IDs
+# Track received message IDs for deduplication
 received_message_ids = set()
 
 def get_db_connection():
@@ -41,91 +41,179 @@ def get_db_connection():
         return None
 
 def init_database():
+    """Simple database initialization without complex transactions"""
     conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(50) UNIQUE NOT NULL,
-                        is_admin BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        is_online BOOLEAN DEFAULT FALSE
-                    )
-                """)
-                
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS messages (
-                        id SERIAL PRIMARY KEY,
-                        sender VARCHAR(50) NOT NULL,
-                        receiver VARCHAR(50) NOT NULL,
-                        message_text TEXT,
-                        message_type VARCHAR(20) DEFAULT 'text',
-                        file_path VARCHAR(500),
-                        file_name VARCHAR(255),
-                        file_size INTEGER,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        offline_id VARCHAR(100) UNIQUE,
-                        delivered_at TIMESTAMP,
-                        read_at TIMESTAMP
-                    )
-                """)
-                
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_messages_participants 
-                    ON messages (sender, receiver, timestamp)
-                """)
-                
+    if not conn:
+        logger.error("Cannot connect to database")
+        return
+    
+    try:
+        # Create tables one by one with separate connections to avoid transaction issues
+        create_users_table()
+        create_messages_table()
+        create_indexes()
+        ensure_admin_user()
+        
+        logger.info("✅ Database initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+    finally:
+        conn.close()
+
+def create_users_table():
+    """Create users table"""
+    conn = get_db_connection()
+    if not conn:
+        return
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    is_admin BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_online BOOLEAN DEFAULT FALSE
+                )
+            """)
+            conn.commit()
+            logger.info("✅ Users table created/verified")
+    except Exception as e:
+        logger.error(f"Error creating users table: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def create_messages_table():
+    """Create messages table with all required columns"""
+    conn = get_db_connection()
+    if not conn:
+        return
+        
+    try:
+        with conn.cursor() as cur:
+            # Create main table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    sender VARCHAR(50) NOT NULL,
+                    receiver VARCHAR(50) NOT NULL,
+                    message_text TEXT,
+                    message_type VARCHAR(20) DEFAULT 'text',
+                    file_path VARCHAR(500),
+                    file_name VARCHAR(255),
+                    file_size INTEGER,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    offline_id VARCHAR(100),
+                    delivered_at TIMESTAMP,
+                    read_at TIMESTAMP
+                )
+            """)
+            
+            # Add any missing columns
+            columns_to_check = [
+                ("message_type", "VARCHAR(20) DEFAULT 'text'"),
+                ("file_path", "VARCHAR(500)"),
+                ("file_name", "VARCHAR(255)"),
+                ("file_size", "INTEGER"),
+                ("offline_id", "VARCHAR(100)"),
+                ("delivered_at", "TIMESTAMP"),
+                ("read_at", "TIMESTAMP")
+            ]
+            
+            for column_name, column_type in columns_to_check:
                 try:
-                    cur.execute("""
+                    cur.execute(f"""
                         DO $$ 
                         BEGIN 
                             IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.table_constraints 
-                                WHERE constraint_name = 'messages_offline_id_key'
+                                SELECT 1 FROM information_schema.columns 
+                                WHERE table_name='messages' AND column_name='{column_name}'
                             ) THEN
-                                ALTER TABLE messages ADD CONSTRAINT messages_offline_id_key UNIQUE (offline_id);
+                                ALTER TABLE messages ADD COLUMN {column_name} {column_type};
                             END IF;
                         END $$;
                     """)
                 except Exception as e:
-                    logger.warning(f"Could not add unique constraint: {e}")
-                
-                try:
-                    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
-                    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(20) DEFAULT 'text'")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_path VARCHAR(500)")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS offline_id VARCHAR(100)")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP")
-                    cur.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMP")
-                except Exception as e:
-                    logger.warning(f"Columns may already exist: {e}")
-                
-                cur.execute("""
-                    INSERT INTO users (username, is_admin) 
-                    VALUES (%s, TRUE)
-                    ON CONFLICT (username) 
-                    DO UPDATE SET is_admin = TRUE
-                """, (ADMIN_USERNAME,))
-                
-                conn.commit()
-                logger.info("Database tables initialized successfully")
-        except Exception as e:
-            logger.error(f"Error initializing database: {e}")
-            conn.rollback()
-        finally:
-            conn.close()
+                    logger.warning(f"Column {column_name} might already exist: {e}")
+            
+            conn.commit()
+            logger.info("✅ Messages table created/verified")
+    except Exception as e:
+        logger.error(f"Error creating messages table: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
+def create_indexes():
+    """Create necessary indexes"""
+    conn = get_db_connection()
+    if not conn:
+        return
+        
+    try:
+        with conn.cursor() as cur:
+            # Create basic indexes (not concurrent to avoid transaction issues)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_messages_participants 
+                ON messages (sender, receiver, timestamp)
+            """)
+            
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_messages_offline_id 
+                ON messages (offline_id)
+            """)
+            
+            # Create partial unique index for offline_id (non-concurrent)
+            try:
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS messages_offline_id_unique 
+                    ON messages (offline_id) 
+                    WHERE offline_id IS NOT NULL AND offline_id != ''
+                """)
+            except Exception as e:
+                logger.warning(f"Could not create unique index: {e}")
+            
+            conn.commit()
+            logger.info("✅ Indexes created/verified")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def ensure_admin_user():
+    """Ensure admin user exists"""
+    conn = get_db_connection()
+    if not conn:
+        return
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO users (username, is_admin) 
+                VALUES (%s, TRUE)
+                ON CONFLICT (username) 
+                DO UPDATE SET is_admin = TRUE
+            """, (ADMIN_USERNAME,))
+            conn.commit()
+            logger.info(f"✅ Admin user '{ADMIN_USERNAME}' ensured")
+    except Exception as e:
+        logger.error(f"Error ensuring admin user: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+# Initialize database on startup
 init_database()
 
-active_users = {}
-user_sessions = {}
+# Store active users and their socket sessions
+active_users = {}  # username -> socket_id
+user_sessions = {}  # username -> set of socket_ids
 
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -217,14 +305,18 @@ def delete_user():
     if conn:
         try:
             with conn.cursor() as cur:
+                # Delete user's messages
                 cur.execute("DELETE FROM messages WHERE sender = %s OR receiver = %s", 
                            (target_username, target_username))
+                # Delete user
                 cur.execute("DELETE FROM users WHERE username = %s", (target_username,))
                 conn.commit()
                 
+                # Remove from active users
                 if target_username in active_users:
                     del active_users[target_username]
                 
+                # Notify all clients
                 emit('user_deleted', {'username': target_username}, broadcast=True, namespace='/')
                 return jsonify({'success': True})
         except Exception as e:
@@ -278,10 +370,7 @@ def update_user_online_status(username, is_online):
         try:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE username = %s", (username,))
-                try:
-                    cur.execute("UPDATE users SET is_online = %s WHERE username = %s", (is_online, username))
-                except Exception as e:
-                    logger.warning(f"is_online column might not exist yet: {e}")
+                cur.execute("UPDATE users SET is_online = %s WHERE username = %s", (is_online, username))
                 conn.commit()
         except Exception as e:
             logger.error(f"Error updating online status: {e}")
@@ -293,6 +382,7 @@ def update_user_online_status(username, is_online):
 def handle_login(data):
     username = data['username']
     
+    # Allow admin to have multiple sessions, but regular users only one
     if username != ADMIN_USERNAME and username in active_users:
         emit('login_failed', {'message': 'Username already taken'})
         return
@@ -306,6 +396,7 @@ def handle_login(data):
         
         update_user_online_status(username, True)
         
+        # Get online users (excluding current user)
         online_users = [user for user in active_users.keys() if user != username]
         all_users = get_all_users_except(username)
         is_admin = is_user_admin(username)
@@ -317,6 +408,7 @@ def handle_login(data):
             'is_admin': is_admin
         })
         
+        # Notify other users
         emit('user_joined', {'username': username}, broadcast=True)
         logger.info(f"User logged in: {username} (Admin: {is_admin})")
     else:
@@ -335,11 +427,9 @@ def register_user(username):
                     RETURNING id
                 """, (username,))
                 
+                # Ensure admin status for admin user
                 if username == ADMIN_USERNAME:
-                    try:
-                        cur.execute("UPDATE users SET is_admin = TRUE WHERE username = %s", (username,))
-                    except Exception as e:
-                        logger.warning(f"Could not set admin status: {e}")
+                    cur.execute("UPDATE users SET is_admin = TRUE WHERE username = %s", (username,))
                 
                 conn.commit()
                 return True
@@ -380,9 +470,10 @@ def get_all_users_except(exclude_username):
 def handle_send_message(data):
     offline_id = data.get('offline_id')
     
-    # WhatsApp-style deduplication
+    # WhatsApp-style deduplication - ignore duplicate messages
     if offline_id and offline_id in received_message_ids:
         logger.info(f"Ignoring duplicate message with offline_id: {offline_id}")
+        # Still send acknowledgment to prevent client retries
         if data.get('sender') in active_users and offline_id:
             emit('message_sent', {
                 'offline_id': offline_id,
@@ -391,8 +482,10 @@ def handle_send_message(data):
             }, room=active_users[data.get('sender')])
         return
     
+    # Track this message ID to prevent duplicates
     if offline_id:
         received_message_ids.add(offline_id)
+        # Limit memory usage (in production, use Redis with TTL)
         if len(received_message_ids) > 10000:
             received_message_ids.clear()
     
@@ -405,13 +498,16 @@ def handle_send_message(data):
     file_size = data.get('file_size', 0)
     timestamp = datetime.now().isoformat()
     
+    # Validate sender (except admin can send as anyone)
     if sender != ADMIN_USERNAME and sender not in active_users:
+        logger.warning(f"Sender {sender} not found in active users")
         return
     
+    # STEP 1: Save message to database
     message_id = save_message_to_db(sender, receiver, message_text, message_type, file_url, file_name, file_size, offline_id)
     
     if message_id:
-        message = {
+        message_data = {
             'id': message_id,
             'sender': sender,
             'receiver': receiver,
@@ -424,16 +520,21 @@ def handle_send_message(data):
             'offline_id': offline_id
         }
         
+        # STEP 2: Acknowledge to sender (one gray tick ✓)
         if sender in active_users and offline_id:
             emit('message_sent', {
                 'offline_id': offline_id,
                 'message_id': message_id,
                 'timestamp': timestamp
             }, room=active_users[sender])
+            logger.info(f"Message {offline_id} acknowledged to sender {sender}")
         
+        # STEP 3: Send to receiver if online
         if receiver in active_users:
-            emit('new_message', message, room=active_users[receiver])
+            emit('new_message', message_data, room=active_users[receiver])
+            logger.info(f"Message {offline_id} delivered to receiver {receiver}")
             
+            # STEP 4: Send delivery confirmation to sender (two gray ticks ✓✓)
             if sender in active_users and offline_id:
                 emit('message_delivered', {
                     'offline_id': offline_id,
@@ -441,16 +542,94 @@ def handle_send_message(data):
                     'timestamp': timestamp
                 }, room=active_users[sender])
                 update_message_delivery_status(message_id, 'delivered')
+                logger.info(f"Delivery confirmation sent for message {offline_id}")
         
-        logger.info(f"Message from {sender} to {receiver} (ID: {offline_id})")
+        logger.info(f"Message flow completed: {sender} -> {receiver} (ID: {offline_id})")
     else:
         logger.error(f"Failed to save message from {sender} to {receiver}")
 
-def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0, offline_id=''):
+@socketio.on('message_delivered')
+def handle_message_delivered(data):
+    offline_id = data.get('offline_id')
+    sender = data.get('sender')
+    receiver = data.get('receiver')
+    
+    logger.info(f"Message {offline_id} delivered to {receiver}")
+    
+    if offline_id and sender in active_users:
+        # Notify sender that message was delivered (two gray ticks ✓✓)
+        emit('message_delivered', {
+            'offline_id': offline_id,
+            'timestamp': datetime.now().isoformat()
+        }, room=active_users[sender])
+        
+        # Update database delivery timestamp
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE messages SET delivered_at = CURRENT_TIMESTAMP WHERE offline_id = %s", (offline_id,))
+                    conn.commit()
+                    logger.info(f"Updated delivery status for message {offline_id}")
+            except Exception as e:
+                logger.error(f"Error updating delivery status: {e}")
+                conn.rollback()
+            finally:
+                conn.close()
+
+@socketio.on('message_read')
+def handle_message_read(data):
+    reader = data.get('reader')
+    sender = data.get('sender')
+    
+    logger.info(f"Messages from {sender} marked as read by {reader}")
+    
+    if sender in active_users:
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    # Get all unread messages from this sender to this reader
+                    cur.execute("""
+                        SELECT offline_id FROM messages 
+                        WHERE sender = %s AND receiver = %s AND read_at IS NULL
+                    """, (sender, reader))
+                    unread_messages = cur.fetchall()
+                    
+                    # Mark all as read in database
+                    cur.execute("""
+                        UPDATE messages SET read_at = CURRENT_TIMESTAMP 
+                        WHERE sender = %s AND receiver = %s AND read_at IS NULL
+                    """, (sender, reader))
+                    conn.commit()
+                    
+                    # Notify sender for each message (two blue ticks ✓✓)
+                    for msg in unread_messages:
+                        offline_id = msg[0]
+                        if offline_id:
+                            emit('message_read', {
+                                'offline_id': offline_id,
+                                'timestamp': datetime.now().isoformat()
+                            }, room=active_users[sender])
+                            logger.info(f"Message {offline_id} marked as read by {reader}")
+                    
+                    logger.info(f"Marked {len(unread_messages)} messages as read from {sender} to {reader}")
+                            
+            except Exception as e:
+                logger.error(f"Error updating read status: {e}")
+                conn.rollback()
+            finally:
+                conn.close()
+
+def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0, offline_id=None):
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
+                # Use NULL for empty offline_id instead of empty string
+                if offline_id == '':
+                    offline_id = None
+                    
                 cur.execute("""
                     INSERT INTO messages (sender, receiver, message_text, message_type, file_path, file_name, file_size, offline_id) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
@@ -458,15 +637,19 @@ def save_message_to_db(sender, receiver, message_text, message_type='text', file
                 """, (sender, receiver, message_text, message_type, file_path, file_name, file_size, offline_id))
                 message_id = cur.fetchone()[0]
                 conn.commit()
+                logger.info(f"Message saved to database with ID: {message_id}")
                 return message_id
         except psycopg2.IntegrityError as e:
+            # Handle duplicate offline_id gracefully (WhatsApp-style deduplication)
             logger.warning(f"Duplicate offline_id detected: {offline_id}")
             conn.rollback()
+            # Try to get the existing message ID
             try:
                 with conn.cursor() as cur:
                     cur.execute("SELECT id FROM messages WHERE offline_id = %s", (offline_id,))
                     result = cur.fetchone()
                     if result:
+                        logger.info(f"Found existing message with offline_id {offline_id}")
                         return result[0]
             except Exception as e2:
                 logger.error(f"Error fetching existing message: {e2}")
@@ -489,40 +672,12 @@ def update_message_delivery_status(message_id, status):
                 elif status == 'read':
                     cur.execute("UPDATE messages SET read_at = CURRENT_TIMESTAMP WHERE id = %s", (message_id,))
                 conn.commit()
+                logger.info(f"Updated message {message_id} status to {status}")
         except Exception as e:
             logger.error(f"Error updating delivery status: {e}")
             conn.rollback()
         finally:
             conn.close()
-
-@socketio.on('message_read')
-def handle_message_read(data):
-    message_id = data.get('message_id')
-    offline_id = data.get('offline_id')
-    reader = data.get('reader')
-    
-    if message_id:
-        update_message_delivery_status(message_id, 'read')
-    
-    if offline_id:
-        conn = get_db_connection()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT sender FROM messages WHERE offline_id = %s", (offline_id,))
-                    result = cur.fetchone()
-                    if result:
-                        sender = result[0]
-                        if sender in active_users:
-                            emit('message_read', {
-                                'offline_id': offline_id,
-                                'message_id': message_id,
-                                'timestamp': datetime.now().isoformat()
-                            }, room=active_users[sender])
-            except Exception as e:
-                logger.error(f"Error updating read status: {e}")
-            finally:
-                conn.close()
 
 @socketio.on('get_conversation')
 def handle_get_conversation(data):
@@ -587,7 +742,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                         'timestamp': msg['timestamp'].isoformat(),
                         'offline_id': msg['offline_id']
                     })
-                return result[::-1]
+                return result[::-1]  # Reverse to get chronological order
         except Exception as e:
             logger.error(f"Error fetching conversation: {e}")
             return []
@@ -630,9 +785,11 @@ def handle_admin_send_message(data):
             'timestamp': datetime.now().isoformat()
         }
         
+        # Send to receiver if online
         if receiver in active_users:
             emit('new_message', message, room=active_users[receiver])
         
+        # Also send to admin
         if admin_username in active_users:
             emit('new_message', message, room=active_users[admin_username])
 
@@ -652,4 +809,5 @@ if __name__ == '__main__':
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
     print("👑 Admin Username: Mpc")
+    print("=" * 60)
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
