@@ -691,7 +691,7 @@ html, body {
     color: #999;
 }
 
-/* COMPACT SEND BUTTON */
+/* COMPACT SEND BUTTON - FIXED VISIBILITY */
 #send-btn {
     padding: 0.75rem 1.25rem;
     background: #075e54;
@@ -705,6 +705,11 @@ html, body {
     min-height: 40px;
     white-space: nowrap;
     flex-shrink: 0;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 1001 !important;
 }
 
 #send-btn:hover:not(:disabled) {
@@ -900,7 +905,7 @@ html, body {
     }
     
     /* ============================================= */
-    /* MOBILE: COMPACT VERTICAL INPUT AREA */
+    /* MOBILE: COMPACT VERTICAL INPUT AREA - FIXED */
     /* ============================================= */
     .message-input-container {
         position: fixed !important;
@@ -961,7 +966,7 @@ html, body {
         color: #999;
     }
     
-    /* MOBILE: COMPACT SEND BUTTON */
+    /* MOBILE: COMPACT SEND BUTTON - FIXED VISIBILITY */
     #send-btn {
         padding: 0.75rem 1.25rem !important;
         font-size: 1rem !important;
@@ -977,6 +982,8 @@ html, body {
         opacity: 1 !important;
         height: auto !important;
         font-weight: 600 !important;
+        position: relative !important;
+        z-index: 1001 !important;
     }
     
     .message {
