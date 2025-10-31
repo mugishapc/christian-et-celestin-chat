@@ -26,7 +26,7 @@ class ChatApp {
         this.recordingTimer = null;
         
         // Mobile state
-        this.isMobile = window.innerWidth <= 568;
+        this.isMobile = window.innerWidth <= 768;
         this.mobileChatActive = false;
         
         this.initializeEventListeners();
@@ -35,9 +35,9 @@ class ChatApp {
     }
 
     setupMobileDetection() {
-        this.isMobile = window.innerWidth <= 568;
+        this.isMobile = window.innerWidth <= 768;
         window.addEventListener('resize', () => {
-            this.isMobile = window.innerWidth <= 568;
+            this.isMobile = window.innerWidth <= 768;
             if (this.isMobile && this.currentUser) {
                 this.fixMobileViewport();
             }
@@ -72,9 +72,15 @@ class ChatApp {
         }
         if (messageInput) {
             messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.sendMessage();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
             });
             messageInput.addEventListener('input', () => this.handleTyping());
+            
+            // Auto-resize textarea
+            messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
         }
         if (receiverSelect) {
             receiverSelect.addEventListener('change', (e) => {
@@ -121,6 +127,15 @@ class ChatApp {
             if (e.target.classList.contains('image-upload-btn') || e.target.closest('.image-upload-btn')) {
                 document.getElementById('image-input').click();
             }
+            
+            // Play voice messages
+            if (e.target.classList.contains('play-voice-btn') || e.target.closest('.play-voice-btn')) {
+                const voiceMessage = e.target.closest('.voice-message');
+                if (voiceMessage) {
+                    const audioUrl = voiceMessage.dataset.audioUrl;
+                    this.playVoiceMessage(audioUrl);
+                }
+            }
         });
 
         // Image upload handler
@@ -129,6 +144,25 @@ class ChatApp {
             imageInput.addEventListener('change', (e) => {
                 this.handleImageUpload(e.target.files[0]);
             });
+        }
+        
+        // Prevent drag and drop on the whole page
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+    }
+
+    autoResizeTextarea() {
+        const textarea = document.getElementById('message-input');
+        if (textarea) {
+            textarea.style.height = 'auto';
+            const newHeight = Math.min(textarea.scrollHeight, 120); // Max height 120px
+            textarea.style.height = newHeight + 'px';
+            
+            // Adjust container height if needed
+            const inputContainer = document.querySelector('.message-input-container');
+            if (inputContainer && this.isMobile) {
+                inputContainer.style.minHeight = Math.max(80, newHeight + 40) + 'px';
+            }
         }
     }
 
@@ -211,7 +245,6 @@ class ChatApp {
         if (!messagesContainer) return;
 
         if (force || this.isAtBottom) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
             setTimeout(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 this.isAtBottom = true;
@@ -620,6 +653,7 @@ class ChatApp {
         if (messageInput) {
             messageInput.placeholder = "Select a user to start chatting";
             messageInput.disabled = true;
+            messageInput.style.height = 'auto';
         }
         
         this.showWelcomeMessage();
@@ -756,6 +790,15 @@ class ChatApp {
         
         this.stopTyping();
         messageInput.value = '';
+        messageInput.style.height = 'auto';
+        
+        // Reset input container height on mobile
+        if (this.isMobile) {
+            const inputContainer = document.querySelector('.message-input-container');
+            if (inputContainer) {
+                inputContainer.style.minHeight = '80px';
+            }
+        }
         
         // Keep focus on input after sending
         setTimeout(() => {
@@ -792,7 +835,7 @@ class ChatApp {
                 <div class="message-content">
                     <div class="image-message">
                         <img src="${message.file_url}" alt="Shared image" onclick="this.classList.toggle('expanded')">
-                        <div class="image-caption">${this.escapeHtml(message.text || '')}</div>
+                        ${message.text ? `<div class="image-caption">${this.escapeHtml(message.text)}</div>` : ''}
                     </div>
                     <div class="message-time">${time}</div>
                 </div>
@@ -801,8 +844,8 @@ class ChatApp {
             const duration = this.formatVoiceDuration(message.file_size);
             messageContent = `
                 <div class="message-content">
-                    <div class="voice-message">
-                        <button class="play-voice-btn" onclick="chatApp.playVoiceMessage('${message.file_url}')">
+                    <div class="voice-message" data-audio-url="${message.file_url}">
+                        <button class="play-voice-btn">
                             ▶️
                         </button>
                         <div class="voice-waveform">
@@ -858,19 +901,29 @@ class ChatApp {
         }
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100
+                } 
+            });
+            this.mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus'
+            });
             this.audioChunks = [];
             
             this.mediaRecorder.ondataavailable = (event) => {
-                this.audioChunks.push(event.data);
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
+                }
             };
             
             this.mediaRecorder.onstop = () => {
                 this.showVoiceRecordingControls();
             };
             
-            this.mediaRecorder.start();
+            this.mediaRecorder.start(100); // Collect data every 100ms
             this.isRecording = true;
             this.showRecordingInterface();
             
@@ -881,7 +934,7 @@ class ChatApp {
             
         } catch (error) {
             console.error('Error starting recording:', error);
-            this.showNotification('Error accessing microphone', 'error');
+            this.showNotification('Error accessing microphone. Please check permissions.', 'error');
         }
     }
 
@@ -898,6 +951,7 @@ class ChatApp {
         this.stopVoiceRecording();
         this.hideRecordingInterface();
         this.audioChunks = [];
+        this.showNotification('Recording cancelled');
     }
 
     async sendVoiceMessage() {
@@ -908,6 +962,13 @@ class ChatApp {
 
         try {
             const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            
+            // Check file size (max 10MB)
+            if (audioBlob.size > 10 * 1024 * 1024) {
+                this.showNotification('Voice message too large', 'error');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', audioBlob, 'voice-message.webm');
             formData.append('file_type', 'voice');
@@ -1198,6 +1259,9 @@ class ChatApp {
     }
 
     showNotification(message, type = 'success') {
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+        
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
@@ -1209,14 +1273,18 @@ class ChatApp {
             color: white;
             padding: 12px 20px;
             border-radius: 8px;
-            z-index: 100;
+            z-index: 10000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 300px;
+            word-wrap: break-word;
         `;
         
         document.body.appendChild(notification);
         
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, 3000);
     }
 
