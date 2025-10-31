@@ -29,7 +29,7 @@ ADMIN_USERNAME = "Mpc"
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
 
-# Track received message IDs to prevent duplicates
+# Track received message IDs
 received_message_ids = set()
 
 def get_db_connection():
@@ -79,7 +79,21 @@ def init_database():
                     ON messages (sender, receiver, timestamp)
                 """)
                 
-                # Add missing columns if they don't exist
+                try:
+                    cur.execute("""
+                        DO $$ 
+                        BEGIN 
+                            IF NOT EXISTS (
+                                SELECT 1 FROM information_schema.table_constraints 
+                                WHERE constraint_name = 'messages_offline_id_key'
+                            ) THEN
+                                ALTER TABLE messages ADD CONSTRAINT messages_offline_id_key UNIQUE (offline_id);
+                            END IF;
+                        END $$;
+                    """)
+                except Exception as e:
+                    logger.warning(f"Could not add unique constraint: {e}")
+                
                 try:
                     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
                     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE")
@@ -368,11 +382,19 @@ def handle_send_message(data):
     
     # WhatsApp-style deduplication
     if offline_id and offline_id in received_message_ids:
-        logger.info(f"Ignoring duplicate message: {offline_id}")
+        logger.info(f"Ignoring duplicate message with offline_id: {offline_id}")
+        if data.get('sender') in active_users and offline_id:
+            emit('message_sent', {
+                'offline_id': offline_id,
+                'message_id': None,
+                'timestamp': datetime.now().isoformat()
+            }, room=active_users[data.get('sender')])
         return
     
     if offline_id:
         received_message_ids.add(offline_id)
+        if len(received_message_ids) > 10000:
+            received_message_ids.clear()
     
     sender = data['sender']
     receiver = data['receiver']
@@ -393,7 +415,7 @@ def handle_send_message(data):
             'id': message_id,
             'sender': sender,
             'receiver': receiver,
-            'text': message_text,
+            'message': message_text,
             'message_type': message_type,
             'file_url': file_url,
             'file_name': file_name,
@@ -402,7 +424,6 @@ def handle_send_message(data):
             'offline_id': offline_id
         }
         
-        # Send acknowledgment to sender (one gray tick)
         if sender in active_users and offline_id:
             emit('message_sent', {
                 'offline_id': offline_id,
@@ -410,11 +431,9 @@ def handle_send_message(data):
                 'timestamp': timestamp
             }, room=active_users[sender])
         
-        # Send to receiver if online
         if receiver in active_users:
             emit('new_message', message, room=active_users[receiver])
             
-            # Send delivery confirmation (two gray ticks)
             if sender in active_users and offline_id:
                 emit('message_delivered', {
                     'offline_id': offline_id,
@@ -440,6 +459,18 @@ def save_message_to_db(sender, receiver, message_text, message_type='text', file
                 message_id = cur.fetchone()[0]
                 conn.commit()
                 return message_id
+        except psycopg2.IntegrityError as e:
+            logger.warning(f"Duplicate offline_id detected: {offline_id}")
+            conn.rollback()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT id FROM messages WHERE offline_id = %s", (offline_id,))
+                    result = cur.fetchone()
+                    if result:
+                        return result[0]
+            except Exception as e2:
+                logger.error(f"Error fetching existing message: {e2}")
+            return None
         except Exception as e:
             logger.error(f"Error saving message: {e}")
             conn.rollback()
@@ -533,7 +564,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, sender, receiver, message_text as text, message_type, 
+                    SELECT id, sender, receiver, message_text, message_type, 
                            file_path, file_name, file_size, timestamp, offline_id
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
@@ -548,7 +579,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                         'id': msg['id'],
                         'sender': msg['sender'],
                         'receiver': msg['receiver'],
-                        'text': msg['text'],
+                        'message': msg['message_text'],
                         'message_type': msg['message_type'],
                         'file_url': msg['file_path'],
                         'file_name': msg['file_name'],
@@ -594,7 +625,7 @@ def handle_admin_send_message(data):
             'id': message_id,
             'sender': sender,
             'receiver': receiver,
-            'text': message_text,
+            'message': message_text,
             'message_type': message_type,
             'timestamp': datetime.now().isoformat()
         }
@@ -619,5 +650,6 @@ if __name__ == '__main__':
     print("🗄️  Database: PostgreSQL with Neon")
     print("🔧 Features: WhatsApp-style messaging, offline queue, delivery status")
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
+    print("🔄 DEDUPLICATION: Server ignores duplicate messages")
     print("👑 Admin Username: Mpc")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

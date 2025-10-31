@@ -11,7 +11,7 @@ class ChatApp {
         
         // Infinite scroll variables
         this.currentOffset = 0;
-        this.messagesLimit = 500;
+        this.messagesLimit = 50;
         this.isLoadingMessages = false;
         this.hasMoreMessages = true;
         this.allMessages = [];
@@ -29,10 +29,10 @@ class ChatApp {
         this.isMobile = window.innerWidth <= 768;
         this.mobileChatActive = false;
         
-        // WhatsApp-style offline system
+        // WhatsApp-style offline system - FIXED
         this.offlineQueue = new Map();
         this.isOnline = navigator.onLine;
-        this.retryInterval = 5000;
+        this.retryInterval = 3000;
         this.retryTimer = null;
         this.messageStatus = new Map();
         this.pendingMessages = new Map();
@@ -110,13 +110,15 @@ class ChatApp {
     queueMessageForSending(messageData) {
         const messageId = messageData.id;
         
+        // Store in offline queue
         this.offlineQueue.set(messageId, {
             ...messageData,
             attempts: 0,
-            maxAttempts: 10,
+            maxAttempts: 5,
             lastAttempt: Date.now()
         });
         
+        // Set initial status
         this.messageStatus.set(messageId, {
             status: 'queued',
             updatedAt: new Date().toISOString()
@@ -125,10 +127,12 @@ class ChatApp {
         this.saveOfflineQueue();
         this.updateMessageStatusDisplay(messageId, 'queued');
         
+        // Start retry mechanism if online
         if (this.isOnline && !this.retryTimer) {
             this.startRetryMechanism();
         }
         
+        // Try to send immediately if online
         if (this.isOnline) {
             this.sendMessageToServer(messageData);
         }
@@ -137,22 +141,40 @@ class ChatApp {
     sendMessageToServer(messageData) {
         const messageId = messageData.id;
         
-        if (this.acknowledgedMessages.has(messageId) || this.pendingMessages.has(messageId)) {
+        // Don't send if already acknowledged
+        if (this.acknowledgedMessages.has(messageId)) {
+            console.log(`Message ${messageId} already acknowledged, skipping send`);
+            return;
+        }
+        
+        // Don't send if already pending
+        if (this.pendingMessages.has(messageId)) {
+            console.log(`Message ${messageId} already pending, skipping send`);
             return;
         }
 
-        if (!this.socket) return;
+        if (!this.socket) {
+            console.log(`Socket not available for message ${messageId}`);
+            return;
+        }
 
+        // Set pending status BEFORE emitting
         const timeout = setTimeout(() => {
-            if (!this.acknowledgedMessages.has(messageId)) {
-                this.handleMessageTimeout(messageId);
-            }
-            this.pendingMessages.delete(messageId);
+            console.log(`Message ${messageId} timeout, will retry if needed`);
+            this.handleMessageTimeout(messageId);
         }, 10000);
 
-        this.pendingMessages.set(messageId, { timeout });
+        this.pendingMessages.set(messageId, { 
+            timeout: timeout,
+            message: messageData
+        });
+        
+        // Update status to sending immediately
         this.updateMessageStatusDisplay(messageId, 'sending');
 
+        console.log(`Sending message ${messageId} to server`);
+        
+        // Send to server
         this.socket.emit('send_message', {
             ...messageData,
             offline_id: messageId
@@ -162,57 +184,91 @@ class ChatApp {
     handleMessageSentAck(ackData) {
         const { offline_id } = ackData;
         
+        console.log(`Server acknowledged message ${offline_id}`);
+        
+        // Mark as acknowledged by server
         this.acknowledgedMessages.add(offline_id);
         
+        // Clear pending timeout
         if (this.pendingMessages.has(offline_id)) {
             const pending = this.pendingMessages.get(offline_id);
             clearTimeout(pending.timeout);
             this.pendingMessages.delete(offline_id);
         }
         
+        // Remove from offline queue
         this.offlineQueue.delete(offline_id);
+        
+        // Update status to "sent" (one gray tick)
         this.updateMessageStatusDisplay(offline_id, 'sent');
+        
         this.saveOfflineQueue();
     }
 
     handleMessageTimeout(messageId) {
         const message = this.offlineQueue.get(messageId);
-        if (!message || this.acknowledgedMessages.has(messageId)) return;
+        if (!message || this.acknowledgedMessages.has(messageId)) {
+            console.log(`Message ${messageId} no longer exists or already acknowledged`);
+            return;
+        }
         
         message.attempts++;
         message.lastAttempt = Date.now();
         
+        console.log(`Message ${messageId} timeout, attempt ${message.attempts}/${message.maxAttempts}`);
+        
         if (message.attempts >= message.maxAttempts) {
+            // Max retries reached
+            console.log(`Message ${messageId} failed after ${message.maxAttempts} attempts`);
             this.updateMessageStatusDisplay(messageId, 'failed');
             this.offlineQueue.delete(messageId);
+            this.pendingMessages.delete(messageId);
         } else if (this.isOnline) {
+            // Retry sending with exponential backoff
+            const backoffDelay = Math.min(1000 * Math.pow(2, message.attempts), 30000);
+            console.log(`Retrying message ${messageId} in ${backoffDelay}ms`);
+            
             setTimeout(() => {
-                this.sendMessageToServer(message);
-            }, 2000);
+                if (!this.acknowledgedMessages.has(messageId) && this.offlineQueue.has(messageId)) {
+                    this.sendMessageToServer(message);
+                }
+            }, backoffDelay);
         }
         
         this.saveOfflineQueue();
     }
 
     processOfflineQueue() {
-        if (!this.isOnline || !this.socket) return;
+        if (!this.isOnline || !this.socket) {
+            console.log('Cannot process offline queue: offline or no socket');
+            return;
+        }
 
+        let processedCount = 0;
+        
         this.offlineQueue.forEach((message, messageId) => {
             if (!this.acknowledgedMessages.has(messageId) && !this.pendingMessages.has(messageId)) {
                 this.sendMessageToServer(message);
+                processedCount++;
             }
         });
+        
+        console.log(`Processed ${processedCount} messages from offline queue`);
     }
 
     startRetryMechanism() {
-        if (this.retryTimer) clearInterval(this.retryTimer);
+        if (this.retryTimer) {
+            clearInterval(this.retryTimer);
+        }
         
         this.retryTimer = setInterval(() => {
             if (this.isOnline && this.offlineQueue.size > 0) {
+                console.log(`Retry interval: ${this.offlineQueue.size} messages in queue`);
                 this.processOfflineQueue();
             }
             
             if (this.offlineQueue.size === 0) {
+                console.log('No messages in queue, stopping retry mechanism');
                 clearInterval(this.retryTimer);
                 this.retryTimer = null;
             }
@@ -237,10 +293,14 @@ class ChatApp {
             const saved = localStorage.getItem('chatApp_offlineQueue_' + this.currentUser);
             if (saved) {
                 const data = JSON.parse(saved);
+                
                 this.offlineQueue = new Map(data.queue || []);
                 this.messageStatus = new Map(data.messageStatus || []);
                 this.acknowledgedMessages = new Set(data.acknowledgedMessages || []);
+                
                 this.updateAllMessageStatuses();
+                
+                console.log(`Loaded offline queue: ${this.offlineQueue.size} messages, ${this.acknowledgedMessages.size} acknowledged`);
             }
         } catch (e) {
             console.error('Error loading offline queue:', e);
@@ -287,10 +347,10 @@ class ChatApp {
         switch(status) {
             case 'queued': statusHtml = '⏳'; statusClass = 'status-queued'; break;
             case 'sending': statusHtml = '🔄'; statusClass = 'status-sending'; break;
-            case 'sent': statusHtml = '✅'; statusClass = 'status-sent'; break;
-            case 'delivered': statusHtml = '✅✅'; statusClass = 'status-delivered'; break;
-            case 'read': statusHtml = '✅✅'; statusClass = 'status-read'; break;
-            case 'failed': statusHtml = '❌'; statusClass = 'status-failed'; break;
+            case 'sent': statusHtml = '✓'; statusClass = 'status-sent'; break;
+            case 'delivered': statusHtml = '✓✓'; statusClass = 'status-delivered'; break;
+            case 'read': statusHtml = '✓✓'; statusClass = 'status-read'; break;
+            case 'failed': statusHtml = '✗'; statusClass = 'status-failed'; break;
             default: statusHtml = '⏳'; statusClass = 'status-queued';
         }
         
@@ -305,6 +365,7 @@ class ChatApp {
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) welcomeMessage.style.display = 'none';
         
+        // Check if message already exists
         const existingMessage = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
         if (existingMessage) {
             const currentStatus = this.messageStatus.get(message.id)?.status || 'queued';
@@ -382,6 +443,7 @@ class ChatApp {
         }
 
         this.uploadFileAndUpdateMessage(file, 'image', messageId, messageData);
+        
         document.getElementById('image-input').value = '';
     }
 
@@ -427,6 +489,7 @@ class ChatApp {
         }
 
         this.uploadFileAndUpdateMessage(audioBlob, 'voice', messageId, messageData, 'voice-message.webm');
+        
         this.hideRecordingInterface();
         this.audioChunks = [];
     }
@@ -436,6 +499,8 @@ class ChatApp {
             const formData = new FormData();
             formData.append('file', file, filename);
             formData.append('file_type', fileType);
+
+            this.showNotification(`Uploading ${fileType}...`, 'info');
 
             const response = await fetch('/upload_file', {
                 method: 'POST',
@@ -450,14 +515,14 @@ class ChatApp {
                     queuedMessage.file_url = result.file_url;
                     queuedMessage.file_name = result.file_name;
                     queuedMessage.file_size = result.file_size;
+                    
                     this.updateMessageWithFile(messageId, result.file_url, fileType);
                 }
                 
                 this.saveOfflineQueue();
                 
-                if (this.isOnline) {
-                    this.sendMessageToServer(queuedMessage || messageData);
-                }
+                console.log(`File uploaded for message ${messageId}, message remains in queue for sending`);
+                
             } else {
                 this.showNotification(`Error uploading ${fileType}: ` + result.error, 'error');
                 this.updateMessageStatusDisplay(messageId, 'failed');
@@ -511,7 +576,7 @@ class ChatApp {
                     <div class="image-message">
                         ${message.file_url ? 
                             `<img src="${message.file_url}" alt="Shared image" onclick="this.classList.toggle('expanded')">` :
-                            `<div class="file-placeholder">📷 Image (will upload when online)</div>`
+                            `<div class="file-placeholder">📷 Image (uploading...)</div>`
                         }
                         ${message.message ? `<div class="image-caption">${this.escapeHtml(message.message)}</div>` : ''}
                     </div>
@@ -557,6 +622,7 @@ class ChatApp {
             this.socket.emit('login', { username });
             this.isOnline = true;
             this.updateOnlineStatusIndicator();
+            
             setTimeout(() => this.processOfflineQueue(), 1000);
         });
 
@@ -834,7 +900,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching MugiChat...</div>
+                <div class="loading-text">Launching WhatsApp Clone...</div>
             </div>
         `;
     }
@@ -1446,7 +1512,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to MugiChat!</p>
+                <p>Welcome to WhatsApp Clone!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -1533,7 +1599,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>MugiChat</h1>
+                <h1>WhatsApp Clone</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -1577,7 +1643,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>MugiChat</h1>
+                <h1>WhatsApp Clone</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
