@@ -27,7 +27,7 @@ DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-ad
 ADMIN_USERNAME = "Mpc"
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm'}
 
 # Track received message IDs for deduplication
 received_message_ids = set()
@@ -808,6 +808,7 @@ if __name__ == '__main__':
     print("🔧 Features: WhatsApp-style messaging, offline queue, delivery status")
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
+    print("🎤 VOICE MESSAGES: Full recording and playback support")
     print("👑 Admin Username: Mpc")
     print("=" * 60)
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

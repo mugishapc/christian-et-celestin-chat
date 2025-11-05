@@ -204,6 +204,7 @@ html, body {
     overflow-y: auto;
     flex-shrink: 0;
     height: 100%;
+    position: relative;
 }
 
 .users-sidebar-header {
@@ -220,9 +221,31 @@ html, body {
     font-weight: 600;
 }
 
+/* SCROLLABLE USERS LIST */
 #users-list {
     list-style: none;
     padding: 0.5rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 140px);
+    -webkit-overflow-scrolling: touch;
+}
+
+#users-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#users-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#users-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+#users-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 #users-list li {
@@ -452,6 +475,7 @@ html, body {
     gap: 0.75rem;
     padding: 0.5rem;
     cursor: pointer;
+    min-width: 200px;
 }
 
 .play-voice-btn {
@@ -467,6 +491,7 @@ html, body {
     font-size: 1rem;
     transition: all 0.3s ease;
     flex-shrink: 0;
+    color: white;
 }
 
 .play-voice-btn:hover {
@@ -490,6 +515,7 @@ html, body {
     position: relative;
     overflow: hidden;
     min-width: 100px;
+    transition: all 0.3s ease;
 }
 
 .voice-wave::after {
@@ -567,6 +593,8 @@ html, body {
     margin: 0.5rem 0;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     width: 100%;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .recording-indicator {
@@ -595,24 +623,71 @@ html, body {
     font-weight: bold;
 }
 
+.voice-waveform-visual {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 40px;
+    width: 100%;
+    justify-content: center;
+}
+
+.wave-bar {
+    width: 3px;
+    background: #075e54;
+    border-radius: 2px;
+    transition: height 0.1s ease;
+}
+
 .recording-preview {
     color: #075e54;
     font-weight: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.voice-preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.play-preview-btn {
+    background: #075e54;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-duration {
+    font-size: 0.9rem;
+    color: #666;
 }
 
 .recording-controls {
     display: flex;
     gap: 0.5rem;
+    width: 100%;
+    justify-content: space-between;
 }
 
 .cancel-voice-btn, .send-voice-btn {
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1.5rem;
     border: none;
-    border-radius: 15px;
+    border-radius: 20px;
     cursor: pointer;
     font-weight: 500;
     transition: all 0.3s ease;
-    flex-shrink: 0;
+    flex: 1;
+    text-align: center;
 }
 
 .cancel-voice-btn {
@@ -1173,20 +1248,6 @@ html, body {
     color: white;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Offline Queue Styles */
 .online-status {
     padding: 4px 8px;
@@ -1312,7 +1373,6 @@ html, body {
     background: #2ecc71;
 }
 
-
 /* Message Status Ticks */
 .message-status {
     font-size: 12px;
@@ -1336,16 +1396,8 @@ html, body {
     color: #95a5a6;
 }
 
-.status-delivered::before {
-    content: "✅✅";
-}
-
 .status-read {
     color: #3498db;
-}
-
-.status-read::before {
-    content: "✅✅";
 }
 
 .status-failed {
@@ -1452,9 +1504,7 @@ html, body {
     font-style: italic;
 }
 
-
-/* Add these styles to your existing CSS */
-
+/* User list styles */
 .user-item {
     display: flex;
     justify-content: space-between;
@@ -1542,6 +1592,7 @@ html, body {
     width: 300px;
     border-right: 1px solid #ddd;
     background: white;
+    overflow-y: auto;
 }
 
 .chat-area {

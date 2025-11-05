@@ -25,6 +25,8 @@ class ChatApp {
         this.recordingTimeout = null;
         this.maxRecordingTime = 60000;
         this.recordingTimer = null;
+        this.audioContext = null;
+        this.analyser = null;
         
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
@@ -655,7 +657,7 @@ class ChatApp {
                 const voiceMessage = e.target.closest('.voice-message');
                 if (voiceMessage) {
                     const audioUrl = voiceMessage.dataset.audioUrl;
-                    this.playVoiceMessage(audioUrl);
+                    this.playVoiceMessage(audioUrl, voiceMessage);
                 }
                 return;
             }
@@ -1327,26 +1329,78 @@ class ChatApp {
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 } 
+                audio: { 
+                    echoCancellation: true, 
+                    noiseSuppression: true, 
+                    sampleRate: 44100,
+                    channelCount: 1
+                } 
             });
-            this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            
+            // Initialize audio context for waveform visualization
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.analyser = this.audioContext.createAnalyser();
+            const source = this.audioContext.createMediaStreamSource(stream);
+            source.connect(this.analyser);
+            this.analyser.fftSize = 256;
+            
+            this.mediaRecorder = new MediaRecorder(stream, { 
+                mimeType: 'audio/webm;codecs=opus',
+                audioBitsPerSecond: 128000
+            });
             this.audioChunks = [];
             
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) this.audioChunks.push(event.data);
             };
             
-            this.mediaRecorder.onstop = () => this.showVoiceRecordingControls();
+            this.mediaRecorder.onstop = () => {
+                this.showVoiceRecordingControls();
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+            };
+            
             this.mediaRecorder.start(100);
             this.isRecording = true;
             this.showRecordingInterface();
             
             this.recordingTimeout = setTimeout(() => this.stopVoiceRecording(), this.maxRecordingTime);
             
+            // Start waveform visualization
+            this.startWaveformVisualization();
+            
         } catch (error) {
             console.error('Error starting recording:', error);
             this.showNotification('Error accessing microphone. Please check permissions.', 'error');
         }
+    }
+
+    startWaveformVisualization() {
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const drawWaveform = () => {
+            if (!this.isRecording) return;
+            
+            this.analyser.getByteFrequencyData(dataArray);
+            
+            const waveform = document.querySelector('.voice-waveform-visual');
+            if (waveform) {
+                let waveformHTML = '';
+                for (let i = 0; i < bufferLength; i += 4) {
+                    const value = dataArray[i] / 255;
+                    const height = Math.max(2, value * 30);
+                    waveformHTML += `<div class="wave-bar" style="height: ${height}px"></div>`;
+                }
+                waveform.innerHTML = waveformHTML;
+            }
+            
+            requestAnimationFrame(drawWaveform);
+        };
+        
+        drawWaveform();
     }
 
     stopVoiceRecording() {
@@ -1377,6 +1431,7 @@ class ChatApp {
                 <span>Recording... </span>
                 <span class="recording-timer">0:00</span>
             </div>
+            <div class="voice-waveform-visual"></div>
             <div class="recording-controls">
                 <button class="cancel-voice-btn">Cancel</button>
                 <button class="send-voice-btn">Send</button>
@@ -1394,12 +1449,45 @@ class ChatApp {
             recordingInterface.innerHTML = `
                 <div class="recording-preview">
                     <span>Voice message recorded</span>
+                    <div class="voice-preview-controls">
+                        <button class="play-preview-btn">▶️</button>
+                        <span class="preview-duration">0:00</span>
+                    </div>
                 </div>
                 <div class="recording-controls">
                     <button class="cancel-voice-btn">Cancel</button>
                     <button class="send-voice-btn">Send</button>
                 </div>
             `;
+            
+            // Add preview functionality
+            const playPreviewBtn = recordingInterface.querySelector('.play-preview-btn');
+            const previewDuration = recordingInterface.querySelector('.preview-duration');
+            
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.addEventListener('loadedmetadata', () => {
+                const duration = Math.round(audio.duration);
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+                previewDuration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            });
+            
+            playPreviewBtn.addEventListener('click', () => {
+                if (audio.paused) {
+                    audio.play();
+                    playPreviewBtn.textContent = '⏸️';
+                } else {
+                    audio.pause();
+                    playPreviewBtn.textContent = '▶️';
+                }
+            });
+            
+            audio.addEventListener('ended', () => {
+                playPreviewBtn.textContent = '▶️';
+            });
         }
     }
 
@@ -1430,18 +1518,95 @@ class ChatApp {
         }, 1000);
     }
 
-    formatVoiceDuration(fileSize) {
-        const durationInSeconds = Math.max(1, Math.round(fileSize / 16000));
+    async sendVoiceMessage() {
+        if (this.audioChunks.length === 0) {
+            this.showNotification('No recording to send', 'error');
+            return;
+        }
+
+        try {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'voice-message.webm');
+            formData.append('file_type', 'voice');
+
+            const response = await fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const messageId = this.generateMessageId();
+                const timestamp = new Date().toISOString();
+                
+                const messageData = {
+                    id: messageId,
+                    sender: this.currentUser,
+                    receiver: this.selectedReceiver,
+                    message: 'Voice message',
+                    message_type: 'voice',
+                    file_url: result.file_url,
+                    file_name: result.file_name,
+                    file_size: result.file_size,
+                    timestamp: timestamp,
+                    status: 'sent'
+                };
+
+                this.displayMessage(messageData);
+                this.updateMessageStatusDisplay(messageId, 'sent');
+                this.queueMessageForSending(messageData);
+                
+                this.hideRecordingInterface();
+                this.audioChunks = [];
+                
+                this.showNotification('Voice message sent');
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error sending voice message:', error);
+            this.showNotification('Error sending voice message', 'error');
+        }
+    }
+
+    formatVoiceDuration(durationInSeconds) {
         const minutes = Math.floor(durationInSeconds / 60);
-        const seconds = durationInSeconds % 60;
+        const seconds = Math.floor(durationInSeconds % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    playVoiceMessage(audioUrl) {
+    playVoiceMessage(audioUrl, voiceMessageElement) {
         const audio = new Audio(audioUrl);
+        const playButton = voiceMessageElement.querySelector('.play-voice-btn');
+        const waveform = voiceMessageElement.querySelector('.voice-wave');
+        
+        playButton.textContent = '⏸️';
+        
+        audio.addEventListener('loadedmetadata', () => {
+            const duration = this.formatVoiceDuration(audio.duration);
+            voiceMessageElement.querySelector('.voice-duration').textContent = duration;
+        });
+        
+        audio.addEventListener('timeupdate', () => {
+            if (waveform) {
+                const progress = (audio.currentTime / audio.duration) * 100;
+                waveform.style.background = `linear-gradient(90deg, #075e54 ${progress}%, #128C7E ${progress}%)`;
+            }
+        });
+        
+        audio.addEventListener('ended', () => {
+            playButton.textContent = '▶️';
+            if (waveform) {
+                waveform.style.background = 'linear-gradient(90deg, #075e54 0%, #128C7E 100%)';
+            }
+        });
+        
         audio.play().catch(e => {
             console.error('Error playing voice message:', e);
             this.showNotification('Error playing voice message', 'error');
+            playButton.textContent = '▶️';
         });
     }
 
@@ -1679,11 +1844,11 @@ class ChatApp {
                 </div>
             `;
         } else if (message.message_type === 'voice') {
-            const duration = message.file_size ? this.formatVoiceDuration(message.file_size) : '0:00';
+            const duration = message.file_size ? this.formatVoiceDuration(message.file_size / 16000) : '0:00';
             messageContent = `
                 <div class="message-content">
-                    <div class="voice-message" ${message.file_url ? `data-audio-url="${message.file_url}"` : ''}>
-                        <button class="play-voice-btn" ${!message.file_url ? 'disabled' : ''}>
+                    <div class="voice-message" data-audio-url="${message.file_url}">
+                        <button class="play-voice-btn">
                             ▶️
                         </button>
                         <div class="voice-waveform">
@@ -1707,6 +1872,65 @@ class ChatApp {
         
         messageElement.innerHTML = messageContent;
         return messageElement;
+    }
+
+    async handleImageUpload(file) {
+        if (!file || !this.selectedReceiver) {
+            this.showNotification('Please select a user to send image', 'error');
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please select a valid image file', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            this.showNotification('Image size must be less than 10MB', 'error');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('file_type', 'image');
+
+            const response = await fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const messageId = this.generateMessageId();
+                const timestamp = new Date().toISOString();
+                
+                const messageData = {
+                    id: messageId,
+                    sender: this.currentUser,
+                    receiver: this.selectedReceiver,
+                    message: '',
+                    message_type: 'image',
+                    file_url: result.file_url,
+                    file_name: result.file_name,
+                    file_size: result.file_size,
+                    timestamp: timestamp,
+                    status: 'sent'
+                };
+
+                this.displayMessage(messageData);
+                this.updateMessageStatusDisplay(messageId, 'sent');
+                this.queueMessageForSending(messageData);
+                
+                this.showNotification('Image sent');
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            this.showNotification('Error uploading image', 'error');
+        }
     }
 }
 
