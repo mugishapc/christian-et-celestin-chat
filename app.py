@@ -1,7 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from datetime import datetime
 import os
@@ -232,6 +232,10 @@ def save_uploaded_file(file, file_type):
 def index():
     return render_template('index.html')
 
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
     try:
@@ -256,7 +260,7 @@ def upload_file():
             return jsonify({
                 'success': True,
                 'file_path': file_path,
-                'file_url': f'/{file_path}',
+                'file_url': f'/uploads/{filename}',
                 'file_name': filename,
                 'file_size': file_size
             })
@@ -736,7 +740,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                         'receiver': msg['receiver'],
                         'message': msg['message_text'],
                         'message_type': msg['message_type'],
-                        'file_url': msg['file_path'],
+                        'file_url': f"/uploads/{msg['file_name']}" if msg['file_name'] else msg['file_path'],
                         'file_name': msg['file_name'],
                         'file_size': msg['file_size'],
                         'timestamp': msg['timestamp'].isoformat(),
@@ -809,6 +813,7 @@ if __name__ == '__main__':
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
     print("🎤 VOICE MESSAGES: Full recording and playback support")
+    print("📷 IMAGE SHARING: Complete image upload and display")
     print("👑 Admin Username: Mpc")
     print("=" * 60)
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

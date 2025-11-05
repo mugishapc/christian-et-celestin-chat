@@ -11,10 +11,10 @@
     <!-- Login Screen -->
     <div id="login-screen" class="screen active">
         <div class="login-container">
-            <h1>WhatsApp Clone</h1>
+            <h1>WhatsApp Web</h1>
             <div class="login-form">
                 <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
-                <button id="login-btn">Join Chat</button>
+                <button id="login-btn">Continue to Chat</button>
                 <div id="login-error" class="error-message"></div>
             </div>
         </div>
@@ -25,14 +25,14 @@
         <div class="chat-layout">
             <!-- Users Sidebar -->
             <div class="users-sidebar">
-                <div class="sidebar-header">
+                <div class="users-sidebar-header">
                     <div class="current-user-info">
                         <span id="current-user">User</span>
+                        <div id="online-status-indicator" class="online-status"></div>
                     </div>
-                    <button id="logout-btn" class="logout-btn">Logout</button>
                 </div>
                 <div class="users-list-container">
-                    <h3>Online Users</h3>
+                    <h3>Contacts</h3>
                     <ul id="users-list" class="users-list">
                         <!-- Users will be populated here -->
                     </ul>
@@ -42,33 +42,38 @@
             <!-- Chat Area -->
             <div class="chat-area">
                 <div class="chat-header">
-                    <button class="back-to-users" style="display: none;">←</button>
-                    <div class="chat-info">
-                        <div id="chat-with-user">Select a user to start chatting</div>
-                        <div id="typing-indicator" class="typing-indicator" style="display: none;">
-                            <span id="typing-user"></span> is typing...
+                    <div class="chat-header-content">
+                        <button class="back-to-users" style="display: none;">←</button>
+                        <div class="chat-info">
+                            <div id="chat-with-user">Select a user to start chatting</div>
+                            <div class="user-status" id="typing-indicator" style="display: none;">
+                                <span id="typing-user"></span> is typing...
+                            </div>
                         </div>
+                    </div>
+                    <div class="header-actions">
+                        <button id="logout-btn" class="logout-btn">Logout</button>
                     </div>
                 </div>
 
                 <div id="messages-container" class="messages-container">
                     <div class="welcome-message">
                         <div class="welcome-icon">💬</div>
-                        <p>Welcome to WhatsApp Clone!</p>
-                        <p>Select a user to start a private conversation</p>
+                        <p>Welcome to WhatsApp Web!</p>
+                        <p>Select a contact to start a conversation</p>
                     </div>
                 </div>
 
                 <div class="message-input-container">
                     <div class="input-group">
                         <select id="receiver-select" class="receiver-select">
-                            <option value="">Select a user to chat with</option>
+                            <option value="">Select a contact</option>
                         </select>
                         <div class="media-buttons">
                             <button class="image-upload-btn" title="Send image">📷</button>
                             <button class="voice-record-btn" title="Record voice">🎤</button>
                         </div>
-                        <textarea id="message-input" placeholder="Select a user to start chatting" disabled></textarea>
+                        <textarea id="message-input" placeholder="Type a message..." disabled></textarea>
                         <button id="send-btn" disabled>➤</button>
                     </div>
                 </div>
@@ -76,7 +81,7 @@
         </div>
     </div>
 
-    <!-- Hidden file input -->
+    <!-- Hidden file inputs -->
     <input type="file" id="image-input" accept="image/*" style="display: none;">
     <input type="file" id="voice-input" accept="audio/*" style="display: none;">
 
