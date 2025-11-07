@@ -919,6 +919,9 @@ class ChatApp {
             inputContainer.style.left = '0';
             inputContainer.style.right = '0';
             inputContainer.style.zIndex = '9999';
+            inputContainer.style.background = '#f0f0f0';
+            inputContainer.style.borderTop = '1px solid #e9ecef';
+            inputContainer.style.padding = '1rem 1.5rem';
         }
         
         if (inputGroup) {
@@ -1116,7 +1119,7 @@ class ChatApp {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
-        // Enable input
+        // Enable input - ALWAYS SHOW INPUT AREA
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = "Type a message...";

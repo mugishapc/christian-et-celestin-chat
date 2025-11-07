@@ -236,15 +236,13 @@ html, body {
 }
 
 /* Main chat layout */
-.chat-main {
+.chat-layout {
     display: flex;
-    flex: 1;
-    height: calc(100vh - 70px);
-    overflow: hidden;
+    height: 100vh;
     position: relative;
 }
 
-/* Users sidebar - Desktop */
+/* VERTICAL SCROLLABLE USERS SIDEBAR */
 .users-sidebar {
     width: 380px;
     background: white;
@@ -253,6 +251,8 @@ html, body {
     flex-shrink: 0;
     height: 100%;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .users-sidebar-header {
@@ -268,13 +268,13 @@ html, body {
     color: #075e54;
     font-weight: 500;
     font-size: 1.1rem;
+    margin-bottom: 1rem;
 }
 
 .current-user-info {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
 }
 
 #current-user {
@@ -283,13 +283,21 @@ html, body {
     font-size: 1rem;
 }
 
-/* SCROLLABLE USERS LIST */
+/* VERTICAL SCROLLABLE USERS LIST */
+.users-list-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 #users-list {
     list-style: none;
     padding: 0.5rem;
     overflow-y: auto;
-    max-height: calc(100vh - 140px);
+    flex: 1;
     -webkit-overflow-scrolling: touch;
+    max-height: none;
 }
 
 #users-list::-webkit-scrollbar {
@@ -319,13 +327,13 @@ html, body {
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: space-between;
     position: relative;
     border: 1px solid transparent;
 }
 
 #users-list li.active {
-    background: #e3f2fd;
+    background: #e3f2fd !important;
     border-color: #075e54;
 }
 
@@ -368,7 +376,6 @@ html, body {
 .admin-actions {
     display: flex;
     gap: 0.5rem;
-    margin-left: auto;
 }
 
 .admin-chat-btn, .delete-user-btn {
@@ -851,6 +858,7 @@ html, body {
     opacity: 1 !important;
     width: 100%;
     min-height: 80px;
+    transition: all 0.3s ease;
 }
 
 .input-group {
@@ -1026,20 +1034,18 @@ html, body {
         overflow: hidden !important;
     }
     
-    .chat-main {
+    .chat-layout {
         flex-direction: column;
-        height: calc(100vh - 70px) !important;
+        height: 100vh !important;
         position: relative;
     }
     
-    /* Users sidebar - Horizontal scroll on mobile */
+    /* VERTICAL USERS SIDEBAR - MOBILE */
     .users-sidebar {
         width: 100%;
-        height: 150px;
+        height: 100%;
         border-right: none;
-        border-bottom: 1px solid #e9ecef;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow-y: auto;
         flex-shrink: 0;
         position: relative;
         z-index: 20;
@@ -1058,46 +1064,35 @@ html, body {
         background: #f8f9fa;
     }
     
+    /* VERTICAL SCROLL ON MOBILE */
     #users-list {
-        display: flex;
-        overflow-x: auto;
-        gap: 0.75rem;
+        display: block;
+        overflow-y: auto;
+        height: auto;
+        max-height: calc(100vh - 140px);
         -webkit-overflow-scrolling: touch;
-        height: 100px;
-        align-items: center;
-        padding: 0.75rem;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-    
-    #users-list::-webkit-scrollbar {
-        display: none;
     }
     
     #users-list li {
-        flex: 0 0 auto;
-        min-width: 160px;
-        margin-bottom: 0;
-        height: 90px;
+        min-width: auto;
+        height: auto;
         display: flex;
         align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        text-align: center;
+        flex-direction: row;
+        text-align: left;
         padding: 1rem;
-        position: relative;
+        margin-bottom: 0.5rem;
     }
     
     .admin-actions {
-        position: absolute;
-        bottom: 8px;
-        right: 8px;
-        gap: 0.3rem;
+        position: static;
+        display: flex;
+        gap: 0.5rem;
     }
     
     .admin-chat-btn, .delete-user-btn {
         font-size: 0.85rem;
-        padding: 0.25rem;
+        padding: 0.4rem;
     }
     
     /* Chat area - Takes full screen when active */
@@ -1133,7 +1128,7 @@ html, body {
         scroll-behavior: smooth;
     }
     
-    /* MOBILE: BEAUTIFUL INPUT AREA - FIXED */
+    /* MOBILE: BEAUTIFUL INPUT AREA - FIXED AND ALWAYS VISIBLE */
     .message-input-container {
         position: fixed !important;
         bottom: 0 !important;
