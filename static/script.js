@@ -668,7 +668,6 @@ class ChatApp {
             });
             messageInput.addEventListener('input', () => this.handleTyping());
             messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
-            // Remove focus event listener that was causing issues
         }
         if (receiverSelect) {
             receiverSelect.addEventListener('change', (e) => {
@@ -678,7 +677,7 @@ class ChatApp {
             });
         }
 
-        // FIXED: SIMPLIFIED user list click handler
+        // FIXED: SIMPLIFIED user list click handlers
         this.setupUserListClickHandlers();
         
         // Other event listeners
