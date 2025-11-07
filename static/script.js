@@ -31,6 +31,7 @@ class ChatApp {
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
         this.mobileChatActive = false;
+        this.keyboardVisible = false;
         
         // WhatsApp-style offline system
         this.offlineQueue = new Map();
@@ -45,8 +46,82 @@ class ChatApp {
         this.initializeScrollSystem();
         this.setupMobileDetection();
         this.setupOfflineDetection();
+        this.setupKeyboardDetection();
         
         setTimeout(() => this.ensureInputVisibility(), 1000);
+    }
+
+    setupKeyboardDetection() {
+        if (!this.isMobile) return;
+        
+        // Detect virtual keyboard visibility
+        const originalHeight = window.innerHeight;
+        
+        window.addEventListener('resize', () => {
+            const newHeight = window.innerHeight;
+            const keyboardVisible = newHeight < originalHeight * 0.8;
+            
+            if (keyboardVisible && !this.keyboardVisible) {
+                this.keyboardVisible = true;
+                console.log('📱 Keyboard opened');
+                this.adjustLayoutForKeyboard(true);
+            } else if (!keyboardVisible && this.keyboardVisible) {
+                this.keyboardVisible = false;
+                console.log('📱 Keyboard closed');
+                this.adjustLayoutForKeyboard(false);
+            }
+        });
+        
+        // Prevent default behavior on input focus
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) {
+            messageInput.addEventListener('focus', () => {
+                setTimeout(() => {
+                    this.keyboardVisible = true;
+                    this.adjustLayoutForKeyboard(true);
+                }, 300);
+            });
+            
+            messageInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    this.keyboardVisible = false;
+                    this.adjustLayoutForKeyboard(false);
+                }, 300);
+            });
+        }
+    }
+
+    adjustLayoutForKeyboard(keyboardVisible) {
+        if (!this.isMobile || !this.mobileChatActive) return;
+        
+        const messagesContainer = document.getElementById('messages-container');
+        const inputContainer = document.querySelector('.message-input-container');
+        
+        if (keyboardVisible) {
+            // Keyboard is open - adjust layout
+            if (messagesContainer && inputContainer) {
+                const viewportHeight = window.innerHeight;
+                const inputHeight = inputContainer.offsetHeight;
+                const headerHeight = document.querySelector('.chat-header').offsetHeight;
+                
+                // Calculate available height for messages
+                const messagesHeight = viewportHeight - headerHeight - inputHeight;
+                messagesContainer.style.height = `${messagesHeight}px`;
+                messagesContainer.style.maxHeight = `${messagesHeight}px`;
+                
+                // Scroll to bottom when keyboard opens
+                setTimeout(() => this.scrollToBottom(true), 100);
+            }
+        } else {
+            // Keyboard is closed - restore full height
+            if (messagesContainer) {
+                messagesContainer.style.height = '';
+                messagesContainer.style.maxHeight = '';
+            }
+            
+            // Ensure input stays visible
+            this.ensureInputVisibility();
+        }
     }
 
     setupOfflineDetection() {
@@ -112,7 +187,6 @@ class ChatApp {
         }
         
         setTimeout(() => {
-            messageInput.focus();
             this.ensureInputVisibility();
         }, 100);
     }
@@ -594,7 +668,7 @@ class ChatApp {
             });
             messageInput.addEventListener('input', () => this.handleTyping());
             messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
-            messageInput.addEventListener('focus', () => this.ensureInputVisibility());
+            // Remove focus event listener that was causing issues
         }
         if (receiverSelect) {
             receiverSelect.addEventListener('change', (e) => {
@@ -676,7 +750,6 @@ class ChatApp {
         
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('drop', (e) => e.preventDefault());
-        window.addEventListener('focus', () => this.ensureInputVisibility());
     }
 
     // FIXED: SIMPLIFIED user list click handler
@@ -1091,7 +1164,7 @@ class ChatApp {
         }
     }
 
-    // FIXED: GUARANTEED user selection method
+    // FIXED: GUARANTEED user selection method - NO AUTO FOCUS
     selectReceiver(username) {
         console.log(`👤 SELECTING RECEIVER: ${username}`);
         
@@ -1119,11 +1192,11 @@ class ChatApp {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
-        // Enable input - ALWAYS SHOW INPUT AREA
+        // Enable input - BUT DON'T AUTO-FOCUS
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = "Type a message...";
-            messageInput.focus();
+            // REMOVED: messageInput.focus() - This prevents keyboard from opening automatically
         }
         
         if (sendBtn) sendBtn.disabled = false;
@@ -1142,9 +1215,8 @@ class ChatApp {
             this.showChatOnMobile();
         }
         
-        // Ensure everything is visible and focused
+        // Ensure everything is visible WITHOUT auto-focus
         setTimeout(() => {
-            if (messageInput) messageInput.focus();
             this.ensureInputVisibility();
             this.scrollToBottom(true);
         }, 200);
@@ -1192,6 +1264,7 @@ class ChatApp {
             messageInput.placeholder = "Select a user to start chatting";
             messageInput.disabled = true;
             messageInput.value = '';
+            messageInput.blur(); // Ensure keyboard closes
         }
         
         const chatWithUser = document.getElementById('chat-with-user');
@@ -1712,7 +1785,7 @@ class ChatApp {
         messageInput.disabled = false;
         sendBtn.disabled = false;
         messageInput.placeholder = "Type a message...";
-        messageInput.focus();
+        // REMOVED: messageInput.focus() - No auto-focus
         
         this.loadConversationHistory(username);
         this.updateUsersListActiveState(username);
