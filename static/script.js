@@ -574,6 +574,21 @@ class ChatApp {
             });
             messageInput.addEventListener('input', () => this.handleTyping());
             messageInput.addEventListener('input', this.autoResizeTextarea.bind(this));
+            
+            // CRITICAL FIX: Ensure input area stays visible on focus
+            messageInput.addEventListener('focus', () => {
+                this.ensureInputVisibility();
+                setTimeout(() => {
+                    this.ensureInputVisibility();
+                    this.scrollToBottom(true);
+                }, 300);
+            });
+            
+            messageInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    this.ensureInputVisibility();
+                }, 300);
+            });
         }
         if (receiverSelect) {
             receiverSelect.addEventListener('change', (e) => {
@@ -838,6 +853,7 @@ class ChatApp {
         const inputGroup = document.querySelector('.input-group');
         
         if (inputContainer) {
+            // CRITICAL FIX: Force input container to always be visible and properly positioned
             inputContainer.style.display = 'flex';
             inputContainer.style.visibility = 'visible';
             inputContainer.style.opacity = '1';
@@ -849,12 +865,20 @@ class ChatApp {
             inputContainer.style.background = '#f0f0f0';
             inputContainer.style.borderTop = '1px solid #e9ecef';
             inputContainer.style.padding = '1rem 1.5rem';
+            inputContainer.style.transform = 'translateZ(0)';
+            inputContainer.style.webkitTransform = 'translateZ(0)';
+            inputContainer.style.boxSizing = 'border-box';
+            inputContainer.style.width = '100%';
+            
+            // Ensure it's always above other elements
+            inputContainer.style.willChange = 'transform';
         }
         
         if (inputGroup) {
             inputGroup.style.display = 'flex';
             inputGroup.style.visibility = 'visible';
             inputGroup.style.opacity = '1';
+            inputGroup.style.width = '100%';
         }
         
         if (messageInput) {
@@ -863,6 +887,7 @@ class ChatApp {
             messageInput.style.opacity = '1';
             messageInput.style.position = 'relative';
             messageInput.style.zIndex = '1000';
+            messageInput.style.width = '100%';
         }
         
         if (sendBtn) {
@@ -1018,6 +1043,11 @@ class ChatApp {
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = "Type a message...";
+            // CRITICAL FIX: Focus the input and ensure it's visible
+            setTimeout(() => {
+                messageInput.focus();
+                this.ensureInputVisibility();
+            }, 100);
         }
         
         if (sendBtn) sendBtn.disabled = false;

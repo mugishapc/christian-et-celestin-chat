@@ -532,375 +532,16 @@ html, body {
     color: #666;
 }
 
-/* Image Message Styles */
-.image-message {
-    max-width: 300px;
+/* Status ticks */
+.message-status {
+    font-size: 14px;
+    margin-left: 4px;
 }
 
-.image-message img {
-    max-width: 100%;
-    max-height: 300px;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: block;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.image-message img.expanded {
-    max-width: 90vw;
-    max-height: 90vh;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 10000;
-    background: white;
-    padding: 10px;
-    border-radius: 12px;
-    box-shadow: 0 0 50px rgba(0,0,0,0.5);
-}
-
-.image-caption {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-    color: #666;
-    line-height: 1.4;
-    padding: 0.25rem 0;
-}
-
-/* ============================================= */
-/* WHATSAPP-STYLE VOICE MESSAGES - PERFECT MATCH */
-/* ============================================= */
-.voice-message {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 18px;
-    max-width: 250px;
-    min-width: 120px;
-    position: relative;
-}
-
-.voice-message.sent {
-    background: #dcf8c6;
-    margin-left: auto;
-}
-
-.voice-message.received {
-    background: #ffffff;
-    border: 1px solid #e9edef;
-    margin-right: auto;
-}
-
-.play-voice-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    padding: 8px;
-    margin-right: 8px;
-    border-radius: 50%;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-}
-
-.play-voice-btn:hover {
-    background: rgba(0, 0, 0, 0.1);
-}
-
-/* Play button colors */
-.message.sent .play-voice-btn {
-    color: #075e54;
-}
-
-.message.received .play-voice-btn {
-    color: #008069;
-}
-
-.voice-waveform {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-width: 0;
-}
-
-.voice-wave {
-    height: 4px;
-    background: linear-gradient(90deg, #075e54 0%, #128C7E 100%);
-    border-radius: 2px;
-    margin-bottom: 4px;
-    position: relative;
-    overflow: hidden;
-}
-
-.voice-wave::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 100%;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
-    animation: wave-animation 2s infinite linear;
-}
-
-@keyframes wave-animation {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.voice-duration {
-    font-size: 12px;
-    color: #075e54;
-    font-weight: 500;
-}
-
-/* Duration colors */
-.message.sent .voice-duration {
-    color: #075e54;
-}
-
-.message.received .voice-duration {
-    color: #667781;
-}
-
-/* Message status for voice messages */
-.voice-message .message-status {
-    position: absolute;
-    bottom: -18px;
-    right: 8px;
-    font-size: 10px;
-    color: #8696a0;
-}
-
-.voice-message.sent .message-status {
-    right: 8px;
-}
-
-.voice-message.received .message-status {
-    display: none;
-}
-
-/* Message time styling */
-.voice-message .message-time {
-    position: absolute;
-    bottom: -18px;
-    right: 8px;
-    font-size: 10px;
-    color: #8696a0;
-}
-
-.voice-message.received .message-time {
-    right: auto;
-    left: 12px;
-}
-
-/* Voice message playing state */
-.voice-message.playing .voice-wave::after {
-    animation-duration: 1s;
-}
-
-.voice-message.playing .play-voice-btn {
-    color: #ff3b30;
-}
-
-/* Media Buttons */
-.media-buttons {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.image-upload-btn, .voice-record-btn {
-    background: none;
-    border: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    padding: 0.6rem;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    background: white;
-    border: 1px solid #e0e0e0;
-}
-
-.image-upload-btn:hover, .voice-record-btn:hover {
-    background: #f5f5f5;
-    transform: scale(1.1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.voice-record-btn.recording {
-    background: #e74c3c;
-    color: white;
-    animation: pulse 1s infinite;
-    border-color: #e74c3c;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
-    50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
-}
-
-/* Voice Recording Interface */
-.voice-recording-interface {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.25rem;
-    background: white;
-    border-radius: 25px;
-    margin: 0.5rem 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    width: 100%;
-    flex-direction: column;
-    gap: 1rem;
-    border: 2px solid #e74c3c;
-}
-
-.recording-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    color: #e74c3c;
-    font-weight: 600;
-    font-size: 1rem;
-}
-
-.recording-pulse {
-    width: 14px;
-    height: 14px;
-    background: #e74c3c;
-    border-radius: 50%;
-    animation: recordingPulse 1s infinite;
-}
-
-@keyframes recordingPulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-.recording-timer {
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.voice-waveform-visual {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 45px;
-    width: 100%;
-    justify-content: center;
-    background: #f8f9fa;
-    border-radius: 22px;
-    padding: 0 1rem;
-}
-
-.wave-bar {
-    width: 4px;
-    background: #075e54;
-    border-radius: 2px;
-    transition: height 0.1s ease;
-    min-height: 2px;
-}
-
-.recording-preview {
-    color: #075e54;
-    font-weight: 600;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 1rem;
-}
-
-.voice-preview-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.play-preview-btn {
-    background: #075e54;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.play-preview-btn:hover {
-    background: #064c43;
-    transform: scale(1.1);
-}
-
-.preview-duration {
-    font-size: 0.9rem;
-    color: #666;
-    font-weight: 500;
-}
-
-.recording-controls {
-    display: flex;
-    gap: 0.75rem;
-    width: 100%;
-    justify-content: space-between;
-}
-
-.cancel-voice-btn, .send-voice-btn {
-    padding: 0.85rem 1.5rem;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    flex: 1;
-    text-align: center;
-    font-size: 0.95rem;
-}
-
-.cancel-voice-btn {
-    background: #e74c3c;
-    color: white;
-}
-
-.cancel-voice-btn:hover {
-    background: #c0392b;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-}
-
-.send-voice-btn {
-    background: #25D366;
-    color: white;
-}
-
-.send-voice-btn:hover {
-    background: #128C7E;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
-}
+.status-sent { color: #8696a0; }
+.status-delivered { color: #8696a0; }
+.status-read { color: #53bdeb; }
+.status-failed { color: #ff3b30; }
 
 /* ============================================= */
 /* BEAUTIFUL INPUT AREA - WHATSAPP STYLE */
@@ -912,13 +553,17 @@ html, body {
     flex-shrink: 0;
     position: sticky;
     bottom: 0;
-    z-index: 1000;
+    z-index: 9999;
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     width: 100%;
     min-height: 80px;
     transition: all 0.3s ease;
+    box-sizing: border-box;
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
 .input-group {
@@ -963,6 +608,11 @@ html, body {
     font-family: inherit;
     transition: all 0.3s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #message-input:focus {
@@ -1075,17 +725,6 @@ html, body {
     background: linear-gradient(135deg, #128C7E, #075e54);
     box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
-
-/* Status ticks */
-.message-status {
-    font-size: 14px;
-    margin-left: 4px;
-}
-
-.status-sent { color: #8696a0; }
-.status-delivered { color: #8696a0; }
-.status-read { color: #53bdeb; }
-.status-failed { color: #ff3b30; }
 
 /* ============================================= */
 /* MOBILE RESPONSIVE - PERFECT WHATSAPP */
@@ -1216,8 +855,9 @@ html, body {
         height: auto !important;
         min-height: 80px !important;
         box-shadow: 0 -4px 15px rgba(0,0,0,0.1) !important;
-        transform: translateZ(0);
-        -webkit-transform: translateZ(0);
+        transform: translateZ(0) !important;
+        -webkit-transform: translateZ(0) !important;
+        will-change: transform !important;
     }
     
     .input-group {
@@ -1305,10 +945,6 @@ html, body {
         padding: 2rem;
     }
     
-   
-    
-    
-    
     /* Mobile chat active state */
     body.mobile-chat-active {
         overflow: hidden !important;
@@ -1345,12 +981,6 @@ html, body {
         min-width: 50px !important;
         font-size: 1.3rem !important;
         padding: 0.8rem !important;
-    }
-    
-    .image-upload-btn, .voice-record-btn {
-        width: 42px !important;
-        height: 42px !important;
-        font-size: 1.2rem !important;
     }
     
     .messages-container {
@@ -1468,84 +1098,6 @@ html, body {
 
 .status-pending {
     color: #f39c12;
-}
-
-/* File Placeholder */
-.file-placeholder {
-    background: #f8f9fa;
-    border: 2px dashed #dee2e6;
-    border-radius: 12px;
-    padding: 25px;
-    text-align: center;
-    color: #6c757d;
-    font-style: italic;
-    font-size: 0.95rem;
-}
-
-/* Queued Message Indicator */
-.message.queued {
-    opacity: 0.8;
-}
-
-.message.queued .message-content {
-    border-left: 4px solid #f39c12;
-}
-
-/* Offline Queue Panel */
-.offline-queue-panel {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 10px;
-    padding: 12px;
-    margin: 12px 0;
-    font-size: 0.85rem;
-}
-
-.offline-queue-panel.hidden {
-    display: none;
-}
-
-.queued-messages-count {
-    font-weight: bold;
-    color: #e67e22;
-}
-
-/* Retry Button */
-.retry-btn {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    margin-left: 8px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.retry-btn:hover {
-    background: #c0392b;
-    transform: translateY(-1px);
-}
-
-/* Network Status Banner */
-.network-status-banner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: #e74c3c;
-    color: white;
-    text-align: center;
-    padding: 12px;
-    z-index: 10001;
-    font-weight: bold;
-    font-size: 0.95rem;
-}
-
-.network-status-banner.online {
-    background: #2ecc71;
 }
 
 /* User list styles */
