@@ -18,16 +18,16 @@ class ChatApp {
         this.allMessages = [];
         this.isLoadingHistory = false;
         
-        // Voice recording variables - FIXED
+        // Voice recording variables - COMPLETELY FIXED
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.recordingTimeout = null;
-        this.maxRecordingTime = 60000;
+        this.maxRecordingTime = 60000; // 1 minute max
         this.recordingTimer = null;
-        this.audioContext = null;
-        this.analyser = null;
-        this.recordedAudioBlob = null; // ADDED: Store the recorded blob
+        this.recordedAudioUrl = null;
+        this.recordedAudioBlob = null;
+        this.recordingStartTime = null;
         
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
@@ -55,7 +55,6 @@ class ChatApp {
     setupKeyboardDetection() {
         if (!this.isMobile) return;
         
-        // Detect virtual keyboard visibility
         const originalHeight = window.innerHeight;
         
         window.addEventListener('resize', () => {
@@ -64,16 +63,13 @@ class ChatApp {
             
             if (keyboardVisible && !this.keyboardVisible) {
                 this.keyboardVisible = true;
-                console.log('📱 Keyboard opened');
                 this.adjustLayoutForKeyboard(true);
             } else if (!keyboardVisible && this.keyboardVisible) {
                 this.keyboardVisible = false;
-                console.log('📱 Keyboard closed');
                 this.adjustLayoutForKeyboard(false);
             }
         });
         
-        // Prevent default behavior on input focus
         const messageInput = document.getElementById('message-input');
         if (messageInput) {
             messageInput.addEventListener('focus', () => {
@@ -99,28 +95,22 @@ class ChatApp {
         const inputContainer = document.querySelector('.message-input-container');
         
         if (keyboardVisible) {
-            // Keyboard is open - adjust layout
             if (messagesContainer && inputContainer) {
                 const viewportHeight = window.innerHeight;
                 const inputHeight = inputContainer.offsetHeight;
                 const headerHeight = document.querySelector('.chat-header').offsetHeight;
                 
-                // Calculate available height for messages
                 const messagesHeight = viewportHeight - headerHeight - inputHeight;
                 messagesContainer.style.height = `${messagesHeight}px`;
                 messagesContainer.style.maxHeight = `${messagesHeight}px`;
                 
-                // Scroll to bottom when keyboard opens
                 setTimeout(() => this.scrollToBottom(true), 100);
             }
         } else {
-            // Keyboard is closed - restore full height
             if (messagesContainer) {
                 messagesContainer.style.height = '';
                 messagesContainer.style.maxHeight = '';
             }
-            
-            // Ensure input stays visible
             this.ensureInputVisibility();
         }
     }
@@ -169,11 +159,8 @@ class ChatApp {
             status: 'sent'
         };
 
-        // Display immediately with one gray tick
         this.displayMessage(messageData);
         this.updateMessageStatusDisplay(messageId, 'sent');
-        
-        // Queue for sending
         this.queueMessageForSending(messageData);
         
         this.stopTyping();
@@ -195,7 +182,6 @@ class ChatApp {
     queueMessageForSending(messageData) {
         const messageId = messageData.id;
         
-        // Store in offline queue
         this.offlineQueue.set(messageId, {
             ...messageData,
             attempts: 0,
@@ -203,7 +189,6 @@ class ChatApp {
             lastAttempt: Date.now()
         });
         
-        // Set initial status
         this.messageStatus.set(messageId, {
             status: 'sent',
             updatedAt: new Date().toISOString()
@@ -211,12 +196,10 @@ class ChatApp {
         
         this.saveOfflineQueue();
         
-        // Start retry mechanism if online
         if (this.isOnline && !this.retryTimer) {
             this.startRetryMechanism();
         }
         
-        // Try to send immediately if online
         if (this.isOnline) {
             this.sendMessageToServer(messageData);
         }
@@ -225,26 +208,19 @@ class ChatApp {
     sendMessageToServer(messageData) {
         const messageId = messageData.id;
         
-        // Don't send if already acknowledged
         if (this.acknowledgedMessages.has(messageId)) {
-            console.log(`Message ${messageId} already acknowledged, skipping send`);
             return;
         }
         
-        // Don't send if already pending
         if (this.pendingMessages.has(messageId)) {
-            console.log(`Message ${messageId} already pending, skipping send`);
             return;
         }
 
         if (!this.socket) {
-            console.log(`Socket not available for message ${messageId}`);
             return;
         }
 
-        // Set pending status with timeout
         const timeout = setTimeout(() => {
-            console.log(`Message ${messageId} timeout, will retry if needed`);
             this.handleMessageTimeout(messageId);
         }, 10000);
 
@@ -253,57 +229,39 @@ class ChatApp {
             message: messageData
         });
 
-        console.log(`📤 Sending message ${messageId} to server`);
-        
-        // Send to server with offline_id for deduplication
         this.socket.emit('send_message', {
             ...messageData,
             offline_id: messageId
         });
     }
 
-    // Handle server acknowledgment (One Gray Tick ✓)
     handleMessageSentAck(ackData) {
         const { offline_id, message_id } = ackData;
         
-        console.log(`✅ Server acknowledged message ${offline_id}`);
-        
         if (!offline_id) return;
         
-        // Mark as acknowledged by server
         this.acknowledgedMessages.add(offline_id);
         
-        // Clear pending timeout
         if (this.pendingMessages.has(offline_id)) {
             const pending = this.pendingMessages.get(offline_id);
             clearTimeout(pending.timeout);
             this.pendingMessages.delete(offline_id);
         }
         
-        // Remove from offline queue
         this.offlineQueue.delete(offline_id);
-        
         this.saveOfflineQueue();
-        
-        console.log(`✅ Message ${offline_id} successfully sent to server`);
     }
 
-    // Handle delivery confirmation (Two Gray Ticks ✓✓)
     handleMessageDelivered(deliveryData) {
         const { offline_id } = deliveryData;
-        
-        console.log(`📬 Message ${offline_id} delivered to recipient`);
         
         if (offline_id && this.messageStatus.has(offline_id)) {
             this.updateMessageStatusDisplay(offline_id, 'delivered');
         }
     }
 
-    // Handle read confirmation (Two Blue Ticks ✓✓)
     handleMessageRead(readData) {
         const { offline_id } = readData;
-        
-        console.log(`👀 Message ${offline_id} read by recipient`);
         
         if (offline_id && this.messageStatus.has(offline_id)) {
             this.updateMessageStatusDisplay(offline_id, 'read');
@@ -313,25 +271,18 @@ class ChatApp {
     handleMessageTimeout(messageId) {
         const message = this.offlineQueue.get(messageId);
         if (!message || this.acknowledgedMessages.has(messageId)) {
-            console.log(`Message ${messageId} no longer exists or already acknowledged`);
             return;
         }
         
         message.attempts++;
         message.lastAttempt = Date.now();
         
-        console.log(`Message ${messageId} timeout, attempt ${message.attempts}/${message.maxAttempts}`);
-        
         if (message.attempts >= message.maxAttempts) {
-            // Max retries reached
-            console.log(`❌ Message ${messageId} failed after ${message.maxAttempts} attempts`);
             this.updateMessageStatusDisplay(messageId, 'failed');
             this.offlineQueue.delete(messageId);
             this.pendingMessages.delete(messageId);
         } else if (this.isOnline) {
-            // Retry sending with exponential backoff
             const backoffDelay = Math.min(1000 * Math.pow(2, message.attempts), 30000);
-            console.log(`🔄 Retrying message ${messageId} in ${backoffDelay}ms`);
             
             setTimeout(() => {
                 if (!this.acknowledgedMessages.has(messageId) && this.offlineQueue.has(messageId)) {
@@ -344,10 +295,7 @@ class ChatApp {
     }
 
     processOfflineQueue() {
-        if (!this.isOnline || !this.socket) {
-            console.log('Cannot process offline queue: offline or no socket');
-            return;
-        }
+        if (!this.isOnline || !this.socket) return;
 
         let processedCount = 0;
         
@@ -357,8 +305,6 @@ class ChatApp {
                 processedCount++;
             }
         });
-        
-        console.log(`Processed ${processedCount} messages from offline queue`);
     }
 
     startRetryMechanism() {
@@ -368,12 +314,10 @@ class ChatApp {
         
         this.retryTimer = setInterval(() => {
             if (this.isOnline && this.offlineQueue.size > 0) {
-                console.log(`Retry interval: ${this.offlineQueue.size} messages in queue`);
                 this.processOfflineQueue();
             }
             
             if (this.offlineQueue.size === 0) {
-                console.log('No messages in queue, stopping retry mechanism');
                 clearInterval(this.retryTimer);
                 this.retryTimer = null;
             }
@@ -404,8 +348,6 @@ class ChatApp {
                 this.acknowledgedMessages = new Set(data.acknowledgedMessages || []);
                 
                 this.updateAllMessageStatuses();
-                
-                console.log(`Loaded offline queue: ${this.offlineQueue.size} messages, ${this.acknowledgedMessages.size} acknowledged`);
             }
         } catch (e) {
             console.error('Error loading offline queue:', e);
@@ -438,7 +380,6 @@ class ChatApp {
         });
     }
 
-    // WhatsApp-style status display
     updateMessageElementStatus(element, status) {
         let statusElement = element.querySelector('.message-status');
         if (!statusElement) {
@@ -483,7 +424,6 @@ class ChatApp {
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) welcomeMessage.style.display = 'none';
         
-        // Check if message already exists
         const existingMessage = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
         if (existingMessage) {
             const currentStatus = this.messageStatus.get(message.id)?.status || 'sent';
@@ -494,7 +434,6 @@ class ChatApp {
         const messageElement = this.createMessageElement(message);
         messagesContainer.appendChild(messageElement);
         
-        // Set initial status
         const initialStatus = this.messageStatus.get(message.id)?.status || 'sent';
         this.updateMessageElementStatus(messageElement, initialStatus);
         
@@ -502,18 +441,14 @@ class ChatApp {
             setTimeout(() => this.scrollToBottom(true), 100);
         }
         
-        // If this is a received message, send delivery confirmation and mark as read
         if (message.sender !== this.currentUser && this.selectedReceiver === message.sender) {
             this.sendDeliveryConfirmation(message);
             this.markMessagesAsRead();
         }
     }
 
-    // Send delivery confirmation for received messages
     sendDeliveryConfirmation(message) {
         if (!this.socket || !message.offline_id) return;
-        
-        console.log(`📬 Sending delivery confirmation for message ${message.offline_id}`);
         
         this.socket.emit('message_delivered', {
             offline_id: message.offline_id,
@@ -522,18 +457,14 @@ class ChatApp {
         });
     }
 
-    // Mark all messages from this sender as read
     markMessagesAsRead() {
         if (!this.socket || !this.selectedReceiver) return;
-        
-        console.log(`👀 Marking messages from ${this.selectedReceiver} as read`);
         
         this.socket.emit('message_read', {
             reader: this.currentUser,
             sender: this.selectedReceiver
         });
         
-        // Also update local status for all messages from this sender
         const messages = document.querySelectorAll('.message.received');
         messages.forEach(message => {
             const messageId = message.dataset.messageId;
@@ -544,16 +475,12 @@ class ChatApp {
     }
 
     handleIncomingMessage(message) {
-        console.log('📩 Received message:', message);
-        
-        // For messages we sent (server echo), update status
         if (message.sender === this.currentUser && message.offline_id) {
             this.handleMessageSentAck({
                 offline_id: message.offline_id,
                 message_id: message.id
             });
         } else {
-            // Message from other user
             this.displayMessage(message);
         }
     }
@@ -562,16 +489,13 @@ class ChatApp {
         this.socket = io();
 
         this.socket.on('connect', () => {
-            console.log('🔗 Connected to server');
             this.socket.emit('login', { username });
             this.isOnline = true;
             this.updateOnlineStatusIndicator();
-            
             setTimeout(() => this.processOfflineQueue(), 1000);
         });
 
         this.socket.on('login_success', (data) => {
-            console.log('✅ Login successful:', data);
             this.currentUser = data.username;
             this.isAdmin = data.is_admin;
             this.showChatScreen(data.online_users, data.all_users);
@@ -593,9 +517,7 @@ class ChatApp {
             this.removeUserFromList(data.username);
         });
 
-        // Handle new messages properly
         this.socket.on('new_message', (data) => {
-            console.log('📨 New message received:', data);
             if (this.isMessageForCurrentConversation(data)) {
                 this.handleIncomingMessage(data);
                 if (this.isAtBottom) this.scrollToBottom(true);
@@ -614,30 +536,24 @@ class ChatApp {
             this.showTypingIndicator(data.sender, data.is_typing);
         });
 
-        // MESSAGE STATUS EVENTS - WhatsApp Style
         this.socket.on('message_sent', (data) => {
-            console.log('✅ Message sent acknowledgment:', data);
             this.handleMessageSentAck(data);
         });
 
         this.socket.on('message_delivered', (data) => {
-            console.log('📬 Message delivered:', data);
             this.handleMessageDelivered(data);
         });
 
         this.socket.on('message_read', (data) => {
-            console.log('👀 Message read:', data);
             this.handleMessageRead(data);
         });
 
         this.socket.on('disconnect', () => {
-            console.log('🔌 Disconnected from server');
             this.isOnline = false;
             this.updateOnlineStatusIndicator();
         });
 
         this.socket.on('reconnect', () => {
-            console.log('🔄 Reconnected to server');
             this.isOnline = true;
             this.updateOnlineStatusIndicator();
             setTimeout(() => this.processOfflineQueue(), 1000);
@@ -678,12 +594,9 @@ class ChatApp {
             });
         }
 
-        // FIXED: SIMPLIFIED user list click handlers
         this.setupUserListClickHandlers();
         
-        // Other event listeners
         document.addEventListener('click', (e) => {
-            // Handle admin actions
             if (e.target.classList.contains('delete-user-btn')) {
                 const username = e.target.dataset.username;
                 this.deleteUser(username);
@@ -698,13 +611,11 @@ class ChatApp {
                 return;
             }
             
-            // Handle mobile navigation
             if (e.target.classList.contains('back-to-users')) {
                 this.showUsersListOnMobile();
                 return;
             }
             
-            // Handle voice recording
             if (e.target.classList.contains('voice-record-btn')) {
                 this.toggleVoiceRecording();
                 return;
@@ -720,13 +631,11 @@ class ChatApp {
                 return;
             }
             
-            // Handle image upload
             if (e.target.classList.contains('image-upload-btn')) {
                 document.getElementById('image-input').click();
                 return;
             }
             
-            // Handle voice message playback
             if (e.target.classList.contains('play-voice-btn')) {
                 const voiceMessage = e.target.closest('.voice-message');
                 if (voiceMessage) {
@@ -736,7 +645,6 @@ class ChatApp {
                 return;
             }
 
-            // Handle scroll to bottom
             if (e.target.classList.contains('scroll-to-bottom')) {
                 this.scrollToBottom(true);
                 return;
@@ -752,34 +660,26 @@ class ChatApp {
         document.addEventListener('drop', (e) => e.preventDefault());
     }
 
-    // FIXED: SIMPLIFIED user list click handler
     setupUserListClickHandlers() {
         const usersList = document.getElementById('users-list');
         if (usersList) {
-            // Remove any existing listeners and add a clean one
             usersList.removeEventListener('click', this.userListClickHandler);
             this.userListClickHandler = this.handleUserClick.bind(this);
             usersList.addEventListener('click', this.userListClickHandler);
         }
     }
 
-    // FIXED: Clean user click handler
     handleUserClick(e) {
-        console.log('User list clicked:', e.target);
-        
-        // Don't proceed if admin buttons were clicked
         if (e.target.classList.contains('delete-user-btn') || 
             e.target.classList.contains('admin-chat-btn')) {
             return;
         }
         
-        // Find the user item
         const userItem = e.target.closest('li');
         if (userItem) {
             const usernameElement = userItem.querySelector('.username');
             if (usernameElement) {
                 const username = usernameElement.textContent;
-                console.log('Selected user:', username);
                 this.selectReceiver(username);
             }
         }
@@ -1064,7 +964,6 @@ class ChatApp {
         usersList.innerHTML = '';
         receiverSelect.innerHTML = '<option value="">Select a user to chat with</option>';
         
-        // Add online users first
         if (onlineUsers && onlineUsers.length > 0) {
             onlineUsers.forEach(user => {
                 if (user !== this.currentUser) {
@@ -1073,7 +972,6 @@ class ChatApp {
             });
         }
         
-        // Add offline users
         if (allUsers && allUsers.length > 0) {
             allUsers.forEach(userData => {
                 const user = userData.username;
@@ -1084,13 +982,10 @@ class ChatApp {
             });
         }
         
-        // Re-attach click handlers after populating
         setTimeout(() => this.setupUserListClickHandlers(), 100);
     }
 
-    // FIXED: Add user to UI with better structure
     addUserToUI(username, usersList, receiverSelect, isOnline, isAdmin = false) {
-        // Add to users list
         if (usersList) {
             const li = document.createElement('li');
             li.className = 'user-item';
@@ -1112,7 +1007,6 @@ class ChatApp {
             usersList.appendChild(li);
         }
         
-        // Add to receiver select
         if (receiverSelect) {
             const option = document.createElement('option');
             option.value = username;
@@ -1139,7 +1033,6 @@ class ChatApp {
             existingUser.style.opacity = isOnline ? '1' : '0.7';
         }
         
-        // RE-ADD click handlers after updating
         setTimeout(() => this.setupUserListClickHandlers(), 100);
     }
 
@@ -1164,25 +1057,19 @@ class ChatApp {
         }
     }
 
-    // FIXED: GUARANTEED user selection method - NO AUTO FOCUS
     selectReceiver(username) {
-        console.log(`👤 SELECTING RECEIVER: ${username}`);
-        
         if (!username || username === this.currentUser) {
-            console.log('Invalid user selection');
             this.showNotification('Cannot chat with yourself', 'error');
             return;
         }
         
         this.selectedReceiver = username;
         
-        // Reset conversation state
         this.currentOffset = 0;
         this.hasMoreMessages = true;
         this.allMessages = [];
         this.isLoadingMessages = false;
         
-        // Update UI elements
         const receiverSelect = document.getElementById('receiver-select');
         if (receiverSelect) receiverSelect.value = username;
         
@@ -1192,39 +1079,27 @@ class ChatApp {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
-        // Enable input - BUT DON'T AUTO-FOCUS
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = "Type a message...";
-            // REMOVED: messageInput.focus() - This prevents keyboard from opening automatically
         }
         
         if (sendBtn) sendBtn.disabled = false;
         
-        // Update active state in user list
         this.updateUsersListActiveState(username);
-        
-        // Load conversation
         this.loadConversationHistory(username);
-        
-        // Mark messages as read
         this.markMessagesAsRead();
         
-        // Mobile handling
         if (this.isMobile) {
             this.showChatOnMobile();
         }
         
-        // Ensure everything is visible WITHOUT auto-focus
         setTimeout(() => {
             this.ensureInputVisibility();
             this.scrollToBottom(true);
         }, 200);
-        
-        console.log(`✅ SUCCESS: Now chatting with ${username}`);
     }
 
-    // FIXED: Show chat on mobile
     showChatOnMobile() {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
@@ -1244,7 +1119,6 @@ class ChatApp {
         }, 100);
     }
 
-    // FIXED: Show users list on mobile
     showUsersListOnMobile() {
         const usersSidebar = document.querySelector('.users-sidebar');
         const chatArea = document.querySelector('.chat-area');
@@ -1264,7 +1138,7 @@ class ChatApp {
             messageInput.placeholder = "Select a user to start chatting";
             messageInput.disabled = true;
             messageInput.value = '';
-            messageInput.blur(); // Ensure keyboard closes
+            messageInput.blur();
         }
         
         const chatWithUser = document.getElementById('chat-with-user');
@@ -1273,7 +1147,6 @@ class ChatApp {
         this.showWelcomeMessage();
     }
 
-    // FIXED: Update user list active state
     updateUsersListActiveState(activeUsername) {
         const usersList = document.getElementById('users-list');
         if (!usersList) return;
@@ -1297,7 +1170,6 @@ class ChatApp {
     loadConversationHistory(otherUser) {
         if (this.socket && otherUser) {
             this.isLoadingHistory = true;
-            console.log(`📖 Loading conversation with ${otherUser}`);
             this.socket.emit('get_conversation', {
                 user1: this.currentUser,
                 user2: otherUser,
@@ -1389,9 +1261,13 @@ class ChatApp {
         if (loadingIndicator) loadingIndicator.remove();
     }
 
+    // =============================================
+    // VOICE RECORDING - COMPLETELY FIXED
+    // =============================================
+
     async toggleVoiceRecording() {
         if (this.isRecording) {
-            this.stopVoiceRecording();
+            await this.stopVoiceRecording();
         } else {
             await this.startVoiceRecording();
         }
@@ -1404,100 +1280,117 @@ class ChatApp {
         }
 
         try {
+            // Clear previous recording
+            this.cleanupPreviousRecording();
+
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: true, 
-                    noiseSuppression: true, 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
                     sampleRate: 44100,
                     channelCount: 1
                 } 
             });
-            
-            // Initialize audio context for waveform visualization
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            this.analyser = this.audioContext.createAnalyser();
-            const source = this.audioContext.createMediaStreamSource(stream);
-            source.connect(this.analyser);
-            this.analyser.fftSize = 256;
-            
-            this.mediaRecorder = new MediaRecorder(stream, { 
+
+            // Use MP3 format for better compatibility
+            const options = { 
                 mimeType: 'audio/webm;codecs=opus',
                 audioBitsPerSecond: 128000
-            });
-            this.audioChunks = [];
-            
-            this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) this.audioChunks.push(event.data);
             };
-            
-            this.mediaRecorder.onstop = () => {
-                this.showVoiceRecordingControls();
-                if (this.audioContext) {
-                    this.audioContext.close();
-                    this.audioContext = null;
+
+            // Fallback for browsers that don't support webm
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options.mimeType = 'audio/mp4';
+            }
+
+            this.mediaRecorder = new MediaRecorder(stream, options);
+            this.audioChunks = [];
+            this.recordingStartTime = Date.now();
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
                 }
             };
-            
-            this.mediaRecorder.start(100);
+
+            this.mediaRecorder.onstop = () => {
+                this.createAudioBlob();
+                this.showVoiceRecordingControls();
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            this.mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                this.showNotification('Recording error: ' + event.error, 'error');
+                this.cancelVoiceRecording();
+            };
+
+            this.mediaRecorder.start(100); // Collect data every 100ms
             this.isRecording = true;
             this.showRecordingInterface();
-            
-            this.recordingTimeout = setTimeout(() => this.stopVoiceRecording(), this.maxRecordingTime);
-            
-            // Start waveform visualization
-            this.startWaveformVisualization();
-            
+
+            // Auto-stop after max time
+            this.recordingTimeout = setTimeout(() => {
+                this.stopVoiceRecording();
+            }, this.maxRecordingTime);
+
         } catch (error) {
             console.error('Error starting recording:', error);
-            this.showNotification('Error accessing microphone. Please check permissions.', 'error');
+            this.showNotification('Error accessing microphone: ' + error.message, 'error');
         }
     }
 
-    startWaveformVisualization() {
-        const bufferLength = this.analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        
-        const drawWaveform = () => {
-            if (!this.isRecording) return;
-            
-            this.analyser.getByteFrequencyData(dataArray);
-            
-            const waveform = document.querySelector('.voice-waveform-visual');
-            if (waveform) {
-                let waveformHTML = '';
-                for (let i = 0; i < bufferLength; i += 4) {
-                    const value = dataArray[i] / 255;
-                    const height = Math.max(2, value * 30);
-                    waveformHTML += `<div class="wave-bar" style="height: ${height}px"></div>`;
-                }
-                waveform.innerHTML = waveformHTML;
-            }
-            
-            requestAnimationFrame(drawWaveform);
-        };
-        
-        drawWaveform();
-    }
-
-    stopVoiceRecording() {
+    async stopVoiceRecording() {
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
-            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
             this.isRecording = false;
             clearTimeout(this.recordingTimeout);
-            
-            // Store the recorded audio blob
-            if (this.audioChunks.length > 0) {
-                this.recordedAudioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-            }
         }
+    }
+
+    createAudioBlob() {
+        if (this.audioChunks.length === 0) {
+            this.showNotification('No audio recorded', 'error');
+            return;
+        }
+
+        try {
+            // Use webm format for better browser support
+            const mimeType = this.audioChunks[0].type || 'audio/webm;codecs=opus';
+            this.recordedAudioBlob = new Blob(this.audioChunks, { type: mimeType });
+            this.recordedAudioUrl = URL.createObjectURL(this.recordedAudioBlob);
+            
+            console.log('Audio blob created:', {
+                size: this.recordedAudioBlob.size,
+                type: this.recordedAudioBlob.type,
+                duration: this.getRecordingDuration()
+            });
+
+        } catch (error) {
+            console.error('Error creating audio blob:', error);
+            this.showNotification('Error processing recording', 'error');
+        }
+    }
+
+    getRecordingDuration() {
+        if (!this.recordingStartTime) return 0;
+        return Math.round((Date.now() - this.recordingStartTime) / 1000);
+    }
+
+    cleanupPreviousRecording() {
+        if (this.recordedAudioUrl) {
+            URL.revokeObjectURL(this.recordedAudioUrl);
+            this.recordedAudioUrl = null;
+        }
+        this.recordedAudioBlob = null;
+        this.audioChunks = [];
+        this.recordingStartTime = null;
     }
 
     cancelVoiceRecording() {
         this.stopVoiceRecording();
         this.hideRecordingInterface();
-        this.audioChunks = [];
-        this.recordedAudioBlob = null;
+        this.cleanupPreviousRecording();
         this.showNotification('Recording cancelled');
     }
 
@@ -1513,7 +1406,15 @@ class ChatApp {
                 <span>Recording... </span>
                 <span class="recording-timer">0:00</span>
             </div>
-            <div class="voice-waveform-visual"></div>
+            <div class="voice-waveform-visual">
+                <div class="wave-bar" style="height: 10px"></div>
+                <div class="wave-bar" style="height: 20px"></div>
+                <div class="wave-bar" style="height: 15px"></div>
+                <div class="wave-bar" style="height: 25px"></div>
+                <div class="wave-bar" style="height: 18px"></div>
+                <div class="wave-bar" style="height: 12px"></div>
+                <div class="wave-bar" style="height: 22px"></div>
+            </div>
             <div class="recording-controls">
                 <button class="cancel-voice-btn">Cancel</button>
                 <button class="send-voice-btn">Send</button>
@@ -1528,12 +1429,15 @@ class ChatApp {
     showVoiceRecordingControls() {
         const recordingInterface = document.querySelector('.voice-recording-interface');
         if (recordingInterface) {
+            const duration = this.getRecordingDuration();
+            const durationText = this.formatVoiceDuration(duration);
+            
             recordingInterface.innerHTML = `
                 <div class="recording-preview">
                     <span>Voice message recorded</span>
                     <div class="voice-preview-controls">
                         <button class="play-preview-btn">▶️</button>
-                        <span class="preview-duration">0:00</span>
+                        <span class="preview-duration">${durationText}</span>
                     </div>
                 </div>
                 <div class="recording-controls">
@@ -1542,24 +1446,16 @@ class ChatApp {
                 </div>
             `;
             
-            // Add preview functionality
             const playPreviewBtn = recordingInterface.querySelector('.play-preview-btn');
-            const previewDuration = recordingInterface.querySelector('.preview-duration');
-            
-            if (this.recordedAudioBlob) {
-                const audioUrl = URL.createObjectURL(this.recordedAudioBlob);
-                const audio = new Audio(audioUrl);
-                
-                audio.addEventListener('loadedmetadata', () => {
-                    const duration = Math.round(audio.duration);
-                    const minutes = Math.floor(duration / 60);
-                    const seconds = duration % 60;
-                    previewDuration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                });
+            if (this.recordedAudioUrl) {
+                const audio = new Audio(this.recordedAudioUrl);
                 
                 playPreviewBtn.addEventListener('click', () => {
                     if (audio.paused) {
-                        audio.play();
+                        audio.play().catch(e => {
+                            console.error('Preview play error:', e);
+                            this.showNotification('Error playing preview', 'error');
+                        });
                         playPreviewBtn.textContent = '⏸️';
                     } else {
                         audio.pause();
@@ -1607,9 +1503,23 @@ class ChatApp {
             return;
         }
 
+        if (this.recordedAudioBlob.size === 0) {
+            this.showNotification('Recording is empty', 'error');
+            return;
+        }
+
         try {
             const formData = new FormData();
-            formData.append('file', this.recordedAudioBlob, 'voice-message.webm');
+            
+            // Use proper file extension based on mime type
+            let fileExtension = '.webm';
+            if (this.recordedAudioBlob.type.includes('mp4')) {
+                fileExtension = '.m4a';
+            } else if (this.recordedAudioBlob.type.includes('ogg')) {
+                fileExtension = '.ogg';
+            }
+            
+            formData.append('file', this.recordedAudioBlob, `voice-message${fileExtension}`);
             formData.append('file_type', 'voice');
 
             const response = await fetch('/upload_file', {
@@ -1617,11 +1527,16 @@ class ChatApp {
                 body: formData
             });
 
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
             const result = await response.json();
 
             if (result.success) {
                 const messageId = this.generateMessageId();
                 const timestamp = new Date().toISOString();
+                const duration = this.getRecordingDuration();
                 
                 const messageData = {
                     id: messageId,
@@ -1632,6 +1547,7 @@ class ChatApp {
                     file_url: result.file_url,
                     file_name: result.file_name,
                     file_size: result.file_size,
+                    duration: duration,
                     timestamp: timestamp,
                     status: 'sent'
                 };
@@ -1641,16 +1557,15 @@ class ChatApp {
                 this.queueMessageForSending(messageData);
                 
                 this.hideRecordingInterface();
-                this.audioChunks = [];
-                this.recordedAudioBlob = null;
+                this.cleanupPreviousRecording();
                 
                 this.showNotification('Voice message sent');
             } else {
-                throw new Error(result.error);
+                throw new Error(result.error || 'Upload failed');
             }
         } catch (error) {
             console.error('Error sending voice message:', error);
-            this.showNotification('Error sending voice message', 'error');
+            this.showNotification('Error sending voice message: ' + error.message, 'error');
         }
     }
 
@@ -1661,11 +1576,15 @@ class ChatApp {
     }
 
     playVoiceMessage(audioUrl, voiceMessageElement) {
+        if (!audioUrl) {
+            this.showNotification('Audio file not available', 'error');
+            return;
+        }
+
         const audio = new Audio(audioUrl);
         const playButton = voiceMessageElement.querySelector('.play-voice-btn');
         const waveform = voiceMessageElement.querySelector('.voice-wave');
         
-        // Add playing class
         voiceMessageElement.classList.add('playing');
         playButton.textContent = '⏸️';
         
@@ -1675,7 +1594,7 @@ class ChatApp {
         });
         
         audio.addEventListener('timeupdate', () => {
-            if (waveform) {
+            if (waveform && audio.duration) {
                 const progress = (audio.currentTime / audio.duration) * 100;
                 waveform.style.background = `linear-gradient(90deg, #075e54 ${progress}%, #128C7E ${progress}%)`;
             }
@@ -1689,14 +1608,16 @@ class ChatApp {
             }
         });
         
-        audio.addEventListener('pause', () => {
+        audio.addEventListener('error', (e) => {
+            console.error('Audio playback error:', e);
+            this.showNotification('Error playing voice message', 'error');
             voiceMessageElement.classList.remove('playing');
             playButton.textContent = '▶️';
         });
         
         audio.play().catch(e => {
             console.error('Error playing voice message:', e);
-            this.showNotification('Error playing voice message', 'error');
+            this.showNotification('Error playing voice message: ' + e.message, 'error');
             voiceMessageElement.classList.remove('playing');
             playButton.textContent = '▶️';
         });
@@ -1801,7 +1722,6 @@ class ChatApp {
         messageInput.disabled = false;
         sendBtn.disabled = false;
         messageInput.placeholder = "Type a message...";
-        // REMOVED: messageInput.focus() - No auto-focus
         
         this.loadConversationHistory(username);
         this.updateUsersListActiveState(username);
@@ -1872,6 +1792,8 @@ class ChatApp {
         this.pendingMessages.forEach(pending => clearTimeout(pending.timeout));
         this.pendingMessages.clear();
         
+        this.cleanupPreviousRecording();
+        
         this.currentUser = null;
         this.selectedReceiver = null;
         this.isAdmin = false;
@@ -1936,7 +1858,7 @@ class ChatApp {
                 </div>
             `;
         } else if (message.message_type === 'voice') {
-            const duration = message.file_size ? this.formatVoiceDuration(message.file_size / 16000) : '0:00';
+            const duration = message.duration ? this.formatVoiceDuration(message.duration) : '0:00';
             messageContent = `
                 <div class="message-content">
                     <div class="voice-message ${message.sender === this.currentUser ? 'sent' : 'received'}" 

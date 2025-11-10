@@ -26,8 +26,9 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-adzvgndi-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 ADMIN_USERNAME = "Mpc"
 
+# SUPPORT ALL AUDIO FORMATS
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm', 'opus'}  # ADDED opus for webm audio
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm', 'opus', 'mp4', 'aac'}
 
 # Track received message IDs for deduplication
 received_message_ids = set()
@@ -48,12 +49,10 @@ def init_database():
         return
     
     try:
-        # Create tables one by one with separate connections to avoid transaction issues
         create_users_table()
         create_messages_table()
         create_indexes()
         ensure_admin_user()
-        
         logger.info("✅ Database initialized successfully")
         
     except Exception as e:
@@ -106,6 +105,7 @@ def create_messages_table():
                     file_path VARCHAR(500),
                     file_name VARCHAR(255),
                     file_size INTEGER,
+                    duration INTEGER,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     offline_id VARCHAR(100),
@@ -120,6 +120,7 @@ def create_messages_table():
                 ("file_path", "VARCHAR(500)"),
                 ("file_name", "VARCHAR(255)"),
                 ("file_size", "INTEGER"),
+                ("duration", "INTEGER"),
                 ("offline_id", "VARCHAR(100)"),
                 ("delivered_at", "TIMESTAMP"),
                 ("read_at", "TIMESTAMP")
@@ -157,7 +158,6 @@ def create_indexes():
         
     try:
         with conn.cursor() as cur:
-            # Create basic indexes (not concurrent to avoid transaction issues)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_messages_participants 
                 ON messages (sender, receiver, timestamp)
@@ -168,7 +168,6 @@ def create_indexes():
                 ON messages (offline_id)
             """)
             
-            # Create partial unique index for offline_id (non-concurrent)
             try:
                 cur.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS messages_offline_id_unique 
@@ -216,7 +215,9 @@ active_users = {}  # username -> socket_id
 user_sessions = {}  # username -> set of socket_ids
 
 def allowed_file(filename, allowed_extensions):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+    if not filename or '.' not in filename:
+        return False
+    return filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def save_uploaded_file(file, file_type):
     if file and file.filename:
@@ -224,8 +225,14 @@ def save_uploaded_file(file, file_type):
         unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
         filename = secure_filename(unique_filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        return file_path, filename, os.path.getsize(file_path)
+        
+        try:
+            file.save(file_path)
+            file_size = os.path.getsize(file_path)
+            return file_path, filename, file_size
+        except Exception as e:
+            logger.error(f"Error saving file: {e}")
+            return None, None, 0
     return None, None, 0
 
 @app.route('/')
@@ -256,7 +263,7 @@ def upload_file():
         
         file_path, filename, file_size = save_uploaded_file(file, file_type)
         
-        if file_path:
+        if file_path and file_size > 0:
             return jsonify({
                 'success': True,
                 'file_path': file_path,
@@ -265,7 +272,7 @@ def upload_file():
                 'file_size': file_size
             })
         else:
-            return jsonify({'success': False, 'error': 'Failed to save file'})
+            return jsonify({'success': False, 'error': 'Failed to save file or file is empty'})
             
     except Exception as e:
         logger.error(f"File upload error: {e}")
@@ -309,18 +316,14 @@ def delete_user():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Delete user's messages
                 cur.execute("DELETE FROM messages WHERE sender = %s OR receiver = %s", 
                            (target_username, target_username))
-                # Delete user
                 cur.execute("DELETE FROM users WHERE username = %s", (target_username,))
                 conn.commit()
                 
-                # Remove from active users
                 if target_username in active_users:
                     del active_users[target_username]
                 
-                # Notify all clients
                 emit('user_deleted', {'username': target_username}, broadcast=True, namespace='/')
                 return jsonify({'success': True})
         except Exception as e:
@@ -386,7 +389,6 @@ def update_user_online_status(username, is_online):
 def handle_login(data):
     username = data['username']
     
-    # Allow admin to have multiple sessions, but regular users only one
     if username != ADMIN_USERNAME and username in active_users:
         emit('login_failed', {'message': 'Username already taken'})
         return
@@ -400,7 +402,6 @@ def handle_login(data):
         
         update_user_online_status(username, True)
         
-        # Get online users (excluding current user)
         online_users = [user for user in active_users.keys() if user != username]
         all_users = get_all_users_except(username)
         is_admin = is_user_admin(username)
@@ -412,7 +413,6 @@ def handle_login(data):
             'is_admin': is_admin
         })
         
-        # Notify other users
         emit('user_joined', {'username': username}, broadcast=True)
         logger.info(f"User logged in: {username} (Admin: {is_admin})")
     else:
@@ -431,7 +431,6 @@ def register_user(username):
                     RETURNING id
                 """, (username,))
                 
-                # Ensure admin status for admin user
                 if username == ADMIN_USERNAME:
                     cur.execute("UPDATE users SET is_admin = TRUE WHERE username = %s", (username,))
                 
@@ -474,10 +473,9 @@ def get_all_users_except(exclude_username):
 def handle_send_message(data):
     offline_id = data.get('offline_id')
     
-    # WhatsApp-style deduplication - ignore duplicate messages
+    # WhatsApp-style deduplication
     if offline_id and offline_id in received_message_ids:
         logger.info(f"Ignoring duplicate message with offline_id: {offline_id}")
-        # Still send acknowledgment to prevent client retries
         if data.get('sender') in active_users and offline_id:
             emit('message_sent', {
                 'offline_id': offline_id,
@@ -486,10 +484,8 @@ def handle_send_message(data):
             }, room=active_users[data.get('sender')])
         return
     
-    # Track this message ID to prevent duplicates
     if offline_id:
         received_message_ids.add(offline_id)
-        # Limit memory usage (in production, use Redis with TTL)
         if len(received_message_ids) > 10000:
             received_message_ids.clear()
     
@@ -500,6 +496,7 @@ def handle_send_message(data):
     file_url = data.get('file_url', '')
     file_name = data.get('file_name', '')
     file_size = data.get('file_size', 0)
+    duration = data.get('duration', 0)
     timestamp = datetime.now().isoformat()
     
     # Validate sender (except admin can send as anyone)
@@ -507,8 +504,8 @@ def handle_send_message(data):
         logger.warning(f"Sender {sender} not found in active users")
         return
     
-    # STEP 1: Save message to database
-    message_id = save_message_to_db(sender, receiver, message_text, message_type, file_url, file_name, file_size, offline_id)
+    # Save message to database
+    message_id = save_message_to_db(sender, receiver, message_text, message_type, file_url, file_name, file_size, duration, offline_id)
     
     if message_id:
         message_data = {
@@ -520,11 +517,12 @@ def handle_send_message(data):
             'file_url': file_url,
             'file_name': file_name,
             'file_size': file_size,
+            'duration': duration,
             'timestamp': timestamp,
             'offline_id': offline_id
         }
         
-        # STEP 2: Acknowledge to sender (one gray tick ✓)
+        # Acknowledge to sender (one gray tick ✓)
         if sender in active_users and offline_id:
             emit('message_sent', {
                 'offline_id': offline_id,
@@ -533,12 +531,12 @@ def handle_send_message(data):
             }, room=active_users[sender])
             logger.info(f"Message {offline_id} acknowledged to sender {sender}")
         
-        # STEP 3: Send to receiver if online
+        # Send to receiver if online
         if receiver in active_users:
             emit('new_message', message_data, room=active_users[receiver])
             logger.info(f"Message {offline_id} delivered to receiver {receiver}")
             
-            # STEP 4: Send delivery confirmation to sender (two gray ticks ✓✓)
+            # Send delivery confirmation to sender (two gray ticks ✓✓)
             if sender in active_users and offline_id:
                 emit('message_delivered', {
                     'offline_id': offline_id,
@@ -561,13 +559,11 @@ def handle_message_delivered(data):
     logger.info(f"Message {offline_id} delivered to {receiver}")
     
     if offline_id and sender in active_users:
-        # Notify sender that message was delivered (two gray ticks ✓✓)
         emit('message_delivered', {
             'offline_id': offline_id,
             'timestamp': datetime.now().isoformat()
         }, room=active_users[sender])
         
-        # Update database delivery timestamp
         conn = get_db_connection()
         if conn:
             try:
@@ -593,21 +589,18 @@ def handle_message_read(data):
         if conn:
             try:
                 with conn.cursor() as cur:
-                    # Get all unread messages from this sender to this reader
                     cur.execute("""
                         SELECT offline_id FROM messages 
                         WHERE sender = %s AND receiver = %s AND read_at IS NULL
                     """, (sender, reader))
                     unread_messages = cur.fetchall()
                     
-                    # Mark all as read in database
                     cur.execute("""
                         UPDATE messages SET read_at = CURRENT_TIMESTAMP 
                         WHERE sender = %s AND receiver = %s AND read_at IS NULL
                     """, (sender, reader))
                     conn.commit()
                     
-                    # Notify sender for each message (two blue ticks ✓✓)
                     for msg in unread_messages:
                         offline_id = msg[0]
                         if offline_id:
@@ -625,29 +618,26 @@ def handle_message_read(data):
             finally:
                 conn.close()
 
-def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0, offline_id=None):
+def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0, duration=0, offline_id=None):
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
-                # Use NULL for empty offline_id instead of empty string
                 if offline_id == '':
                     offline_id = None
                     
                 cur.execute("""
-                    INSERT INTO messages (sender, receiver, message_text, message_type, file_path, file_name, file_size, offline_id) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
+                    INSERT INTO messages (sender, receiver, message_text, message_type, file_path, file_name, file_size, duration, offline_id) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
                     RETURNING id
-                """, (sender, receiver, message_text, message_type, file_path, file_name, file_size, offline_id))
+                """, (sender, receiver, message_text, message_type, file_path, file_name, file_size, duration, offline_id))
                 message_id = cur.fetchone()[0]
                 conn.commit()
                 logger.info(f"Message saved to database with ID: {message_id}")
                 return message_id
         except psycopg2.IntegrityError as e:
-            # Handle duplicate offline_id gracefully (WhatsApp-style deduplication)
             logger.warning(f"Duplicate offline_id detected: {offline_id}")
             conn.rollback()
-            # Try to get the existing message ID
             try:
                 with conn.cursor() as cur:
                     cur.execute("SELECT id FROM messages WHERE offline_id = %s", (offline_id,))
@@ -724,7 +714,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     SELECT id, sender, receiver, message_text, message_type, 
-                           file_path, file_name, file_size, timestamp, offline_id
+                           file_path, file_name, file_size, duration, timestamp, offline_id
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
                     ORDER BY timestamp DESC
@@ -734,7 +724,6 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                 messages = cur.fetchall()
                 result = []
                 for msg in messages:
-                    # FIXED: Handle voice messages properly
                     file_url = msg['file_path']
                     if msg['file_name']:
                         file_url = f"/uploads/{msg['file_name']}"
@@ -748,10 +737,11 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                         'file_url': file_url,
                         'file_name': msg['file_name'],
                         'file_size': msg['file_size'],
+                        'duration': msg['duration'],
                         'timestamp': msg['timestamp'].isoformat(),
                         'offline_id': msg['offline_id']
                     })
-                return result[::-1]  # Reverse to get chronological order
+                return result[::-1]
         except Exception as e:
             logger.error(f"Error fetching conversation: {e}")
             return []
@@ -794,11 +784,9 @@ def handle_admin_send_message(data):
             'timestamp': datetime.now().isoformat()
         }
         
-        # Send to receiver if online
         if receiver in active_users:
             emit('new_message', message, room=active_users[receiver])
         
-        # Also send to admin
         if admin_username in active_users:
             emit('new_message', message, room=active_users[admin_username])
 
@@ -817,7 +805,7 @@ if __name__ == '__main__':
     print("🔧 Features: WhatsApp-style messaging, offline queue, delivery status")
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
-    print("🎤 VOICE MESSAGES: Full recording and playback support - FIXED")
+    print("🎤 VOICE MESSAGES: FULLY WORKING - Recording and playback fixed")
     print("📷 IMAGE SHARING: Complete image upload and display")
     print("👑 Admin Username: Mpc")
     print("=" * 60)
