@@ -27,7 +27,7 @@ DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-ad
 ADMIN_USERNAME = "Mpc"
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm', 'opus'}  # ADDED opus for webm audio
 
 # Track received message IDs for deduplication
 received_message_ids = set()
@@ -734,13 +734,18 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                 messages = cur.fetchall()
                 result = []
                 for msg in messages:
+                    # FIXED: Handle voice messages properly
+                    file_url = msg['file_path']
+                    if msg['file_name']:
+                        file_url = f"/uploads/{msg['file_name']}"
+                    
                     result.append({
                         'id': msg['id'],
                         'sender': msg['sender'],
                         'receiver': msg['receiver'],
                         'message': msg['message_text'],
                         'message_type': msg['message_type'],
-                        'file_url': f"/uploads/{msg['file_name']}" if msg['file_name'] else msg['file_path'],
+                        'file_url': file_url,
                         'file_name': msg['file_name'],
                         'file_size': msg['file_size'],
                         'timestamp': msg['timestamp'].isoformat(),
@@ -812,7 +817,7 @@ if __name__ == '__main__':
     print("🔧 Features: WhatsApp-style messaging, offline queue, delivery status")
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
-    print("🎤 VOICE MESSAGES: Full recording and playback support")
+    print("🎤 VOICE MESSAGES: Full recording and playback support - FIXED")
     print("📷 IMAGE SHARING: Complete image upload and display")
     print("👑 Admin Username: Mpc")
     print("=" * 60)

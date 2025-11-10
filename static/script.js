@@ -18,7 +18,7 @@ class ChatApp {
         this.allMessages = [];
         this.isLoadingHistory = false;
         
-        // Voice recording variables
+        // Voice recording variables - FIXED
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
@@ -27,6 +27,7 @@ class ChatApp {
         this.recordingTimer = null;
         this.audioContext = null;
         this.analyser = null;
+        this.recordedAudioBlob = null; // ADDED: Store the recorded blob
         
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
@@ -901,7 +902,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching WhatsApp Clone...</div>
+                <div class="loading-text">Launching Mugisha...</div>
             </div>
         `;
     }
@@ -1484,6 +1485,11 @@ class ChatApp {
             this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
             this.isRecording = false;
             clearTimeout(this.recordingTimeout);
+            
+            // Store the recorded audio blob
+            if (this.audioChunks.length > 0) {
+                this.recordedAudioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            }
         }
     }
 
@@ -1491,6 +1497,7 @@ class ChatApp {
         this.stopVoiceRecording();
         this.hideRecordingInterface();
         this.audioChunks = [];
+        this.recordedAudioBlob = null;
         this.showNotification('Recording cancelled');
     }
 
@@ -1539,30 +1546,31 @@ class ChatApp {
             const playPreviewBtn = recordingInterface.querySelector('.play-preview-btn');
             const previewDuration = recordingInterface.querySelector('.preview-duration');
             
-            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            audio.addEventListener('loadedmetadata', () => {
-                const duration = Math.round(audio.duration);
-                const minutes = Math.floor(duration / 60);
-                const seconds = duration % 60;
-                previewDuration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            });
-            
-            playPreviewBtn.addEventListener('click', () => {
-                if (audio.paused) {
-                    audio.play();
-                    playPreviewBtn.textContent = '⏸️';
-                } else {
-                    audio.pause();
+            if (this.recordedAudioBlob) {
+                const audioUrl = URL.createObjectURL(this.recordedAudioBlob);
+                const audio = new Audio(audioUrl);
+                
+                audio.addEventListener('loadedmetadata', () => {
+                    const duration = Math.round(audio.duration);
+                    const minutes = Math.floor(duration / 60);
+                    const seconds = duration % 60;
+                    previewDuration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                });
+                
+                playPreviewBtn.addEventListener('click', () => {
+                    if (audio.paused) {
+                        audio.play();
+                        playPreviewBtn.textContent = '⏸️';
+                    } else {
+                        audio.pause();
+                        playPreviewBtn.textContent = '▶️';
+                    }
+                });
+                
+                audio.addEventListener('ended', () => {
                     playPreviewBtn.textContent = '▶️';
-                }
-            });
-            
-            audio.addEventListener('ended', () => {
-                playPreviewBtn.textContent = '▶️';
-            });
+                });
+            }
         }
     }
 
@@ -1594,15 +1602,14 @@ class ChatApp {
     }
 
     async sendVoiceMessage() {
-        if (this.audioChunks.length === 0) {
+        if (!this.recordedAudioBlob) {
             this.showNotification('No recording to send', 'error');
             return;
         }
 
         try {
-            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
             const formData = new FormData();
-            formData.append('file', audioBlob, 'voice-message.webm');
+            formData.append('file', this.recordedAudioBlob, 'voice-message.webm');
             formData.append('file_type', 'voice');
 
             const response = await fetch('/upload_file', {
@@ -1635,6 +1642,7 @@ class ChatApp {
                 
                 this.hideRecordingInterface();
                 this.audioChunks = [];
+                this.recordedAudioBlob = null;
                 
                 this.showNotification('Voice message sent');
             } else {
@@ -1657,6 +1665,8 @@ class ChatApp {
         const playButton = voiceMessageElement.querySelector('.play-voice-btn');
         const waveform = voiceMessageElement.querySelector('.voice-wave');
         
+        // Add playing class
+        voiceMessageElement.classList.add('playing');
         playButton.textContent = '⏸️';
         
         audio.addEventListener('loadedmetadata', () => {
@@ -1672,15 +1682,22 @@ class ChatApp {
         });
         
         audio.addEventListener('ended', () => {
+            voiceMessageElement.classList.remove('playing');
             playButton.textContent = '▶️';
             if (waveform) {
                 waveform.style.background = 'linear-gradient(90deg, #075e54 0%, #128C7E 100%)';
             }
         });
         
+        audio.addEventListener('pause', () => {
+            voiceMessageElement.classList.remove('playing');
+            playButton.textContent = '▶️';
+        });
+        
         audio.play().catch(e => {
             console.error('Error playing voice message:', e);
             this.showNotification('Error playing voice message', 'error');
+            voiceMessageElement.classList.remove('playing');
             playButton.textContent = '▶️';
         });
     }
@@ -1737,7 +1754,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to WhatsApp Clone!</p>
+                <p>Welcome to Mugisha!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -1825,7 +1842,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>WhatsApp Clone</h1>
+                <h1>Mugisha</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -1869,7 +1886,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>WhatsApp Clone</h1>
+                <h1>Mugisha</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -1922,7 +1939,8 @@ class ChatApp {
             const duration = message.file_size ? this.formatVoiceDuration(message.file_size / 16000) : '0:00';
             messageContent = `
                 <div class="message-content">
-                    <div class="voice-message" data-audio-url="${message.file_url}">
+                    <div class="voice-message ${message.sender === this.currentUser ? 'sent' : 'received'}" 
+                         data-audio-url="${message.file_url}">
                         <button class="play-voice-btn">
                             ▶️
                         </button>

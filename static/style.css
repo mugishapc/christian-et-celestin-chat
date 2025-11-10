@@ -569,61 +569,74 @@ html, body {
     padding: 0.25rem 0;
 }
 
-/* Voice Message Styles */
+/* ============================================= */
+/* WHATSAPP-STYLE VOICE MESSAGES - PERFECT MATCH */
+/* ============================================= */
 .voice-message {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    cursor: pointer;
-    min-width: 200px;
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: 25px;
-    transition: all 0.3s ease;
+    padding: 8px 12px;
+    border-radius: 18px;
+    max-width: 250px;
+    min-width: 120px;
+    position: relative;
 }
 
-.voice-message:hover {
-    background: rgba(255, 255, 255, 0.7);
+.voice-message.sent {
+    background: #dcf8c6;
+    margin-left: auto;
+}
+
+.voice-message.received {
+    background: #ffffff;
+    border: 1px solid #e9edef;
+    margin-right: auto;
 }
 
 .play-voice-btn {
-    background: #075e54;
+    background: none;
     border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
+    font-size: 20px;
     cursor: pointer;
+    padding: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-    flex-shrink: 0;
-    color: white;
+    width: 36px;
+    height: 36px;
 }
 
 .play-voice-btn:hover {
-    background: #064c43;
-    transform: scale(1.1);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Play button colors */
+.message.sent .play-voice-btn {
+    color: #075e54;
+}
+
+.message.received .play-voice-btn {
+    color: #008069;
 }
 
 .voice-waveform {
     flex: 1;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    justify-content: center;
     min-width: 0;
 }
 
 .voice-wave {
-    flex: 1;
-    height: 24px;
+    height: 4px;
     background: linear-gradient(90deg, #075e54 0%, #128C7E 100%);
-    border-radius: 12px;
+    border-radius: 2px;
+    margin-bottom: 4px;
     position: relative;
     overflow: hidden;
-    min-width: 100px;
-    transition: all 0.3s ease;
 }
 
 .voice-wave::after {
@@ -631,23 +644,70 @@ html, body {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
+    height: 100%;
+    width: 100%;
     background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
-    animation: wave 2s linear infinite;
+    animation: wave-animation 2s infinite linear;
 }
 
-@keyframes wave {
+@keyframes wave-animation {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
 }
 
 .voice-duration {
-    font-size: 0.75rem;
-    color: #666;
-    min-width: 35px;
-    flex-shrink: 0;
+    font-size: 12px;
+    color: #075e54;
     font-weight: 500;
+}
+
+/* Duration colors */
+.message.sent .voice-duration {
+    color: #075e54;
+}
+
+.message.received .voice-duration {
+    color: #667781;
+}
+
+/* Message status for voice messages */
+.voice-message .message-status {
+    position: absolute;
+    bottom: -18px;
+    right: 8px;
+    font-size: 10px;
+    color: #8696a0;
+}
+
+.voice-message.sent .message-status {
+    right: 8px;
+}
+
+.voice-message.received .message-status {
+    display: none;
+}
+
+/* Message time styling */
+.voice-message .message-time {
+    position: absolute;
+    bottom: -18px;
+    right: 8px;
+    font-size: 10px;
+    color: #8696a0;
+}
+
+.voice-message.received .message-time {
+    right: auto;
+    left: 12px;
+}
+
+/* Voice message playing state */
+.voice-message.playing .voice-wave::after {
+    animation-duration: 1s;
+}
+
+.voice-message.playing .play-voice-btn {
+    color: #ff3b30;
 }
 
 /* Media Buttons */
@@ -1015,6 +1075,17 @@ html, body {
     background: linear-gradient(135deg, #128C7E, #075e54);
     box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
+
+/* Status ticks */
+.message-status {
+    font-size: 14px;
+    margin-left: 4px;
+}
+
+.status-sent { color: #8696a0; }
+.status-delivered { color: #8696a0; }
+.status-read { color: #53bdeb; }
+.status-failed { color: #ff3b30; }
 
 /* ============================================= */
 /* MOBILE RESPONSIVE - PERFECT WHATSAPP */
@@ -1517,111 +1588,6 @@ html, body {
 
 .network-status-banner.online {
     background: #2ecc71;
-}
-
-/* Message Status Ticks */
-.message-status {
-    font-size: 0.8rem;
-    margin-top: 3px;
-    text-align: right;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    font-weight: 600;
-}
-
-.status-queued {
-    color: #f39c12;
-}
-
-.status-sent {
-    color: #95a5a6;
-}
-
-.status-delivered {
-    color: #95a5a6;
-}
-
-.status-read {
-    color: #3498db;
-}
-
-.status-failed {
-    color: #e74c3c;
-}
-
-/* Online Status Indicator */
-.online-status {
-    padding: 6px 12px;
-    border-radius: 15px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-left: 10px;
-    backdrop-filter: blur(10px);
-}
-
-.online-status.online {
-    background: linear-gradient(135deg, #2ecc71, #27ae60);
-    color: white;
-}
-
-.online-status.offline {
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
-    color: white;
-}
-
-/* Message with status */
-.message.sent .message-content {
-    position: relative;
-}
-
-/* File placeholder for offline files */
-.file-placeholder {
-    background: #f8f9fa;
-    border: 2px dashed #dee2e6;
-    border-radius: 12px;
-    padding: 25px;
-    text-align: center;
-    color: #6c757d;
-    font-style: italic;
-    font-size: 0.95rem;
-}
-
-/* WhatsApp-style Message Status */
-.message-status {
-    font-size: 0.75rem;
-    margin-top: 3px;
-    text-align: right;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    font-weight: 600;
-}
-
-.status-queued {
-    color: #f39c12;
-}
-
-.status-sending {
-    color: #3498db;
-}
-
-.status-sent {
-    color: #95a5a6;
-}
-
-.status-delivered {
-    color: #95a5a6;
-}
-
-.status-read {
-    color: #3498db;
-}
-
-.status-failed {
-    color: #e74c3c;
 }
 
 /* User list styles */
