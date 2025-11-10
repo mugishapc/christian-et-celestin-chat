@@ -1,34 +1,24 @@
 import eventlet
 eventlet.monkey_patch()
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from datetime import datetime
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
-import uuid
-from werkzeug.utils import secure_filename
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'd29c234ca310aa6990092d4b6cd4c4854585c51e1f73bf4de510adca03f5bc4e'
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 DATABASE_URL = "postgresql://neondb_owner:npg_e9jnoysJOvu7@ep-little-mountain-adzvgndi-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 ADMIN_USERNAME = "Mpc"
-
-# SUPPORT ALL AUDIO FORMATS
-ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'webm', 'opus', 'mp4', 'aac'}
 
 # Track received message IDs for deduplication
 received_message_ids = set()
@@ -102,10 +92,6 @@ def create_messages_table():
                     receiver VARCHAR(50) NOT NULL,
                     message_text TEXT,
                     message_type VARCHAR(20) DEFAULT 'text',
-                    file_path VARCHAR(500),
-                    file_name VARCHAR(255),
-                    file_size INTEGER,
-                    duration INTEGER,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     offline_id VARCHAR(100),
@@ -117,10 +103,6 @@ def create_messages_table():
             # Add any missing columns
             columns_to_check = [
                 ("message_type", "VARCHAR(20) DEFAULT 'text'"),
-                ("file_path", "VARCHAR(500)"),
-                ("file_name", "VARCHAR(255)"),
-                ("file_size", "INTEGER"),
-                ("duration", "INTEGER"),
                 ("offline_id", "VARCHAR(100)"),
                 ("delivered_at", "TIMESTAMP"),
                 ("read_at", "TIMESTAMP")
@@ -214,69 +196,9 @@ init_database()
 active_users = {}  # username -> socket_id
 user_sessions = {}  # username -> set of socket_ids
 
-def allowed_file(filename, allowed_extensions):
-    if not filename or '.' not in filename:
-        return False
-    return filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-def save_uploaded_file(file, file_type):
-    if file and file.filename:
-        file_ext = file.filename.rsplit('.', 1)[1].lower()
-        unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
-        filename = secure_filename(unique_filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        try:
-            file.save(file_path)
-            file_size = os.path.getsize(file_path)
-            return file_path, filename, file_size
-        except Exception as e:
-            logger.error(f"Error saving file: {e}")
-            return None, None, 0
-    return None, None, 0
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-@app.route('/upload_file', methods=['POST'])
-def upload_file():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file provided'})
-        
-        file = request.files['file']
-        file_type = request.form.get('file_type', 'image')
-        
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'})
-        
-        if file_type == 'image' and not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
-            return jsonify({'success': False, 'error': 'Invalid image format'})
-        
-        if file_type == 'voice' and not allowed_file(file.filename, ALLOWED_AUDIO_EXTENSIONS):
-            return jsonify({'success': False, 'error': 'Invalid audio format'})
-        
-        file_path, filename, file_size = save_uploaded_file(file, file_type)
-        
-        if file_path and file_size > 0:
-            return jsonify({
-                'success': True,
-                'file_path': file_path,
-                'file_url': f'/uploads/{filename}',
-                'file_name': filename,
-                'file_size': file_size
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Failed to save file or file is empty'})
-            
-    except Exception as e:
-        logger.error(f"File upload error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/users', methods=['GET'])
 def get_users():
@@ -493,10 +415,6 @@ def handle_send_message(data):
     receiver = data['receiver']
     message_text = data.get('message', '')
     message_type = data.get('message_type', 'text')
-    file_url = data.get('file_url', '')
-    file_name = data.get('file_name', '')
-    file_size = data.get('file_size', 0)
-    duration = data.get('duration', 0)
     timestamp = datetime.now().isoformat()
     
     # Validate sender (except admin can send as anyone)
@@ -505,7 +423,7 @@ def handle_send_message(data):
         return
     
     # Save message to database
-    message_id = save_message_to_db(sender, receiver, message_text, message_type, file_url, file_name, file_size, duration, offline_id)
+    message_id = save_message_to_db(sender, receiver, message_text, message_type, offline_id)
     
     if message_id:
         message_data = {
@@ -514,10 +432,6 @@ def handle_send_message(data):
             'receiver': receiver,
             'message': message_text,
             'message_type': message_type,
-            'file_url': file_url,
-            'file_name': file_name,
-            'file_size': file_size,
-            'duration': duration,
             'timestamp': timestamp,
             'offline_id': offline_id
         }
@@ -618,7 +532,7 @@ def handle_message_read(data):
             finally:
                 conn.close()
 
-def save_message_to_db(sender, receiver, message_text, message_type='text', file_path='', file_name='', file_size=0, duration=0, offline_id=None):
+def save_message_to_db(sender, receiver, message_text, message_type='text', offline_id=None):
     conn = get_db_connection()
     if conn:
         try:
@@ -627,10 +541,10 @@ def save_message_to_db(sender, receiver, message_text, message_type='text', file
                     offline_id = None
                     
                 cur.execute("""
-                    INSERT INTO messages (sender, receiver, message_text, message_type, file_path, file_name, file_size, duration, offline_id) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
+                    INSERT INTO messages (sender, receiver, message_text, message_type, offline_id) 
+                    VALUES (%s, %s, %s, %s, %s) 
                     RETURNING id
-                """, (sender, receiver, message_text, message_type, file_path, file_name, file_size, duration, offline_id))
+                """, (sender, receiver, message_text, message_type, offline_id))
                 message_id = cur.fetchone()[0]
                 conn.commit()
                 logger.info(f"Message saved to database with ID: {message_id}")
@@ -713,8 +627,7 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, sender, receiver, message_text, message_type, 
-                           file_path, file_name, file_size, duration, timestamp, offline_id
+                    SELECT id, sender, receiver, message_text, message_type, timestamp, offline_id
                     FROM messages 
                     WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
                     ORDER BY timestamp DESC
@@ -724,20 +637,12 @@ def get_conversation_from_db(user1, user2, limit=50, offset=0):
                 messages = cur.fetchall()
                 result = []
                 for msg in messages:
-                    file_url = msg['file_path']
-                    if msg['file_name']:
-                        file_url = f"/uploads/{msg['file_name']}"
-                    
                     result.append({
                         'id': msg['id'],
                         'sender': msg['sender'],
                         'receiver': msg['receiver'],
                         'message': msg['message_text'],
                         'message_type': msg['message_type'],
-                        'file_url': file_url,
-                        'file_name': msg['file_name'],
-                        'file_size': msg['file_size'],
-                        'duration': msg['duration'],
                         'timestamp': msg['timestamp'].isoformat(),
                         'offline_id': msg['offline_id']
                     })
@@ -799,14 +704,14 @@ def fix_database():
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
-    print("🚀 Starting WhatsApp-Style Chat Server...")
+    print("🚀 Starting WhatsApp Clone - TEXT MESSAGES ONLY")
     print("📍 Access at: http://localhost:5000")
     print("🗄️  Database: PostgreSQL with Neon")
-    print("🔧 Features: WhatsApp-style messaging, offline queue, delivery status")
+    print("🔧 Features: WhatsApp-style text messaging only")
     print("✅ TICK SYSTEM: One gray = server received, Two gray = delivered, Two blue = read")
     print("🔄 DEDUPLICATION: Server ignores duplicate messages")
-    print("🎤 VOICE MESSAGES: FULLY WORKING - Recording and playback fixed")
-    print("📷 IMAGE SHARING: Complete image upload and display")
+    print("❌ VOICE MESSAGES: REMOVED")
+    print("❌ FILE SHARING: REMOVED")
     print("👑 Admin Username: Mpc")
     print("=" * 60)
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

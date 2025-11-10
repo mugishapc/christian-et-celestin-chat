@@ -1,4 +1,4 @@
-// script.js
+// script.js - TEXT MESSAGES ONLY
 class ChatApp {
     constructor() {
         this.socket = null;
@@ -17,17 +17,6 @@ class ChatApp {
         this.hasMoreMessages = true;
         this.allMessages = [];
         this.isLoadingHistory = false;
-        
-        // Voice recording variables - COMPLETELY FIXED
-        this.isRecording = false;
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.recordingTimeout = null;
-        this.maxRecordingTime = 60000; // 1 minute max
-        this.recordingTimer = null;
-        this.recordedAudioUrl = null;
-        this.recordedAudioBlob = null;
-        this.recordingStartTime = null;
         
         // Mobile state
         this.isMobile = window.innerWidth <= 768;
@@ -615,46 +604,12 @@ class ChatApp {
                 this.showUsersListOnMobile();
                 return;
             }
-            
-            if (e.target.classList.contains('voice-record-btn')) {
-                this.toggleVoiceRecording();
-                return;
-            }
-            
-            if (e.target.classList.contains('cancel-voice-btn')) {
-                this.cancelVoiceRecording();
-                return;
-            }
-            
-            if (e.target.classList.contains('send-voice-btn')) {
-                this.sendVoiceMessage();
-                return;
-            }
-            
-            if (e.target.classList.contains('image-upload-btn')) {
-                document.getElementById('image-input').click();
-                return;
-            }
-            
-            if (e.target.classList.contains('play-voice-btn')) {
-                const voiceMessage = e.target.closest('.voice-message');
-                if (voiceMessage) {
-                    const audioUrl = voiceMessage.dataset.audioUrl;
-                    this.playVoiceMessage(audioUrl, voiceMessage);
-                }
-                return;
-            }
 
             if (e.target.classList.contains('scroll-to-bottom')) {
                 this.scrollToBottom(true);
                 return;
             }
         });
-
-        const imageInput = document.getElementById('image-input');
-        if (imageInput) {
-            imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target.files[0]));
-        }
         
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('drop', (e) => e.preventDefault());
@@ -802,7 +757,7 @@ class ChatApp {
         loginScreen.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Launching Mugisha...</div>
+                <div class="loading-text">Launching WhatsApp Clone...</div>
             </div>
         `;
     }
@@ -816,7 +771,6 @@ class ChatApp {
         this.showWelcomeMessage();
         
         this.loadOfflineQueue();
-        this.addMediaButtons();
         
         if (this.isMobile) this.addMobileBackButton();
         
@@ -924,24 +878,6 @@ class ChatApp {
         }, 50);
         
         setTimeout(() => this.scrollToBottom(true), 300);
-    }
-
-    addMediaButtons() {
-        const imageInput = document.getElementById('image-input');
-        const imageUploadBtn = document.querySelector('.image-upload-btn');
-        const voiceRecordBtn = document.querySelector('.voice-record-btn');
-        
-        if (imageUploadBtn) {
-            imageUploadBtn.addEventListener('click', () => document.getElementById('image-input').click());
-        }
-        
-        if (voiceRecordBtn) {
-            voiceRecordBtn.addEventListener('click', () => this.toggleVoiceRecording());
-        }
-        
-        if (imageInput) {
-            imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target.files[0]));
-        }
     }
 
     addMobileBackButton() {
@@ -1261,368 +1197,6 @@ class ChatApp {
         if (loadingIndicator) loadingIndicator.remove();
     }
 
-    // =============================================
-    // VOICE RECORDING - COMPLETELY FIXED
-    // =============================================
-
-    async toggleVoiceRecording() {
-        if (this.isRecording) {
-            await this.stopVoiceRecording();
-        } else {
-            await this.startVoiceRecording();
-        }
-    }
-
-    async startVoiceRecording() {
-        if (!this.selectedReceiver) {
-            this.showNotification('Select a user to send voice message', 'error');
-            return;
-        }
-
-        try {
-            // Clear previous recording
-            this.cleanupPreviousRecording();
-
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    sampleRate: 44100,
-                    channelCount: 1
-                } 
-            });
-
-            // Use MP3 format for better compatibility
-            const options = { 
-                mimeType: 'audio/webm;codecs=opus',
-                audioBitsPerSecond: 128000
-            };
-
-            // Fallback for browsers that don't support webm
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'audio/mp4';
-            }
-
-            this.mediaRecorder = new MediaRecorder(stream, options);
-            this.audioChunks = [];
-            this.recordingStartTime = Date.now();
-
-            this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    this.audioChunks.push(event.data);
-                }
-            };
-
-            this.mediaRecorder.onstop = () => {
-                this.createAudioBlob();
-                this.showVoiceRecordingControls();
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            this.mediaRecorder.onerror = (event) => {
-                console.error('MediaRecorder error:', event.error);
-                this.showNotification('Recording error: ' + event.error, 'error');
-                this.cancelVoiceRecording();
-            };
-
-            this.mediaRecorder.start(100); // Collect data every 100ms
-            this.isRecording = true;
-            this.showRecordingInterface();
-
-            // Auto-stop after max time
-            this.recordingTimeout = setTimeout(() => {
-                this.stopVoiceRecording();
-            }, this.maxRecordingTime);
-
-        } catch (error) {
-            console.error('Error starting recording:', error);
-            this.showNotification('Error accessing microphone: ' + error.message, 'error');
-        }
-    }
-
-    async stopVoiceRecording() {
-        if (this.mediaRecorder && this.isRecording) {
-            this.mediaRecorder.stop();
-            this.isRecording = false;
-            clearTimeout(this.recordingTimeout);
-        }
-    }
-
-    createAudioBlob() {
-        if (this.audioChunks.length === 0) {
-            this.showNotification('No audio recorded', 'error');
-            return;
-        }
-
-        try {
-            // Use webm format for better browser support
-            const mimeType = this.audioChunks[0].type || 'audio/webm;codecs=opus';
-            this.recordedAudioBlob = new Blob(this.audioChunks, { type: mimeType });
-            this.recordedAudioUrl = URL.createObjectURL(this.recordedAudioBlob);
-            
-            console.log('Audio blob created:', {
-                size: this.recordedAudioBlob.size,
-                type: this.recordedAudioBlob.type,
-                duration: this.getRecordingDuration()
-            });
-
-        } catch (error) {
-            console.error('Error creating audio blob:', error);
-            this.showNotification('Error processing recording', 'error');
-        }
-    }
-
-    getRecordingDuration() {
-        if (!this.recordingStartTime) return 0;
-        return Math.round((Date.now() - this.recordingStartTime) / 1000);
-    }
-
-    cleanupPreviousRecording() {
-        if (this.recordedAudioUrl) {
-            URL.revokeObjectURL(this.recordedAudioUrl);
-            this.recordedAudioUrl = null;
-        }
-        this.recordedAudioBlob = null;
-        this.audioChunks = [];
-        this.recordingStartTime = null;
-    }
-
-    cancelVoiceRecording() {
-        this.stopVoiceRecording();
-        this.hideRecordingInterface();
-        this.cleanupPreviousRecording();
-        this.showNotification('Recording cancelled');
-    }
-
-    showRecordingInterface() {
-        this.hideRecordingInterface();
-        
-        const inputContainer = document.querySelector('.message-input-container');
-        const recordingInterface = document.createElement('div');
-        recordingInterface.className = 'voice-recording-interface';
-        recordingInterface.innerHTML = `
-            <div class="recording-indicator">
-                <div class="recording-pulse"></div>
-                <span>Recording... </span>
-                <span class="recording-timer">0:00</span>
-            </div>
-            <div class="voice-waveform-visual">
-                <div class="wave-bar" style="height: 10px"></div>
-                <div class="wave-bar" style="height: 20px"></div>
-                <div class="wave-bar" style="height: 15px"></div>
-                <div class="wave-bar" style="height: 25px"></div>
-                <div class="wave-bar" style="height: 18px"></div>
-                <div class="wave-bar" style="height: 12px"></div>
-                <div class="wave-bar" style="height: 22px"></div>
-            </div>
-            <div class="recording-controls">
-                <button class="cancel-voice-btn">Cancel</button>
-                <button class="send-voice-btn">Send</button>
-            </div>
-        `;
-        
-        inputContainer.appendChild(recordingInterface);
-        document.querySelector('.input-group').style.display = 'none';
-        this.startRecordingTimer();
-    }
-
-    showVoiceRecordingControls() {
-        const recordingInterface = document.querySelector('.voice-recording-interface');
-        if (recordingInterface) {
-            const duration = this.getRecordingDuration();
-            const durationText = this.formatVoiceDuration(duration);
-            
-            recordingInterface.innerHTML = `
-                <div class="recording-preview">
-                    <span>Voice message recorded</span>
-                    <div class="voice-preview-controls">
-                        <button class="play-preview-btn">▶️</button>
-                        <span class="preview-duration">${durationText}</span>
-                    </div>
-                </div>
-                <div class="recording-controls">
-                    <button class="cancel-voice-btn">Cancel</button>
-                    <button class="send-voice-btn">Send</button>
-                </div>
-            `;
-            
-            const playPreviewBtn = recordingInterface.querySelector('.play-preview-btn');
-            if (this.recordedAudioUrl) {
-                const audio = new Audio(this.recordedAudioUrl);
-                
-                playPreviewBtn.addEventListener('click', () => {
-                    if (audio.paused) {
-                        audio.play().catch(e => {
-                            console.error('Preview play error:', e);
-                            this.showNotification('Error playing preview', 'error');
-                        });
-                        playPreviewBtn.textContent = '⏸️';
-                    } else {
-                        audio.pause();
-                        playPreviewBtn.textContent = '▶️';
-                    }
-                });
-                
-                audio.addEventListener('ended', () => {
-                    playPreviewBtn.textContent = '▶️';
-                });
-            }
-        }
-    }
-
-    hideRecordingInterface() {
-        const recordingInterface = document.querySelector('.voice-recording-interface');
-        if (recordingInterface) recordingInterface.remove();
-        
-        document.querySelector('.input-group').style.display = 'flex';
-        
-        if (this.recordingTimer) {
-            clearInterval(this.recordingTimer);
-            this.recordingTimer = null;
-        }
-        
-        this.ensureInputVisibility();
-    }
-
-    startRecordingTimer() {
-        let seconds = 0;
-        this.recordingTimer = setInterval(() => {
-            seconds++;
-            const timerElement = document.querySelector('.recording-timer');
-            if (timerElement) {
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = seconds % 60;
-                timerElement.textContent = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-            }
-        }, 1000);
-    }
-
-    async sendVoiceMessage() {
-        if (!this.recordedAudioBlob) {
-            this.showNotification('No recording to send', 'error');
-            return;
-        }
-
-        if (this.recordedAudioBlob.size === 0) {
-            this.showNotification('Recording is empty', 'error');
-            return;
-        }
-
-        try {
-            const formData = new FormData();
-            
-            // Use proper file extension based on mime type
-            let fileExtension = '.webm';
-            if (this.recordedAudioBlob.type.includes('mp4')) {
-                fileExtension = '.m4a';
-            } else if (this.recordedAudioBlob.type.includes('ogg')) {
-                fileExtension = '.ogg';
-            }
-            
-            formData.append('file', this.recordedAudioBlob, `voice-message${fileExtension}`);
-            formData.append('file_type', 'voice');
-
-            const response = await fetch('/upload_file', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success) {
-                const messageId = this.generateMessageId();
-                const timestamp = new Date().toISOString();
-                const duration = this.getRecordingDuration();
-                
-                const messageData = {
-                    id: messageId,
-                    sender: this.currentUser,
-                    receiver: this.selectedReceiver,
-                    message: 'Voice message',
-                    message_type: 'voice',
-                    file_url: result.file_url,
-                    file_name: result.file_name,
-                    file_size: result.file_size,
-                    duration: duration,
-                    timestamp: timestamp,
-                    status: 'sent'
-                };
-
-                this.displayMessage(messageData);
-                this.updateMessageStatusDisplay(messageId, 'sent');
-                this.queueMessageForSending(messageData);
-                
-                this.hideRecordingInterface();
-                this.cleanupPreviousRecording();
-                
-                this.showNotification('Voice message sent');
-            } else {
-                throw new Error(result.error || 'Upload failed');
-            }
-        } catch (error) {
-            console.error('Error sending voice message:', error);
-            this.showNotification('Error sending voice message: ' + error.message, 'error');
-        }
-    }
-
-    formatVoiceDuration(durationInSeconds) {
-        const minutes = Math.floor(durationInSeconds / 60);
-        const seconds = Math.floor(durationInSeconds % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    playVoiceMessage(audioUrl, voiceMessageElement) {
-        if (!audioUrl) {
-            this.showNotification('Audio file not available', 'error');
-            return;
-        }
-
-        const audio = new Audio(audioUrl);
-        const playButton = voiceMessageElement.querySelector('.play-voice-btn');
-        const waveform = voiceMessageElement.querySelector('.voice-wave');
-        
-        voiceMessageElement.classList.add('playing');
-        playButton.textContent = '⏸️';
-        
-        audio.addEventListener('loadedmetadata', () => {
-            const duration = this.formatVoiceDuration(audio.duration);
-            voiceMessageElement.querySelector('.voice-duration').textContent = duration;
-        });
-        
-        audio.addEventListener('timeupdate', () => {
-            if (waveform && audio.duration) {
-                const progress = (audio.currentTime / audio.duration) * 100;
-                waveform.style.background = `linear-gradient(90deg, #075e54 ${progress}%, #128C7E ${progress}%)`;
-            }
-        });
-        
-        audio.addEventListener('ended', () => {
-            voiceMessageElement.classList.remove('playing');
-            playButton.textContent = '▶️';
-            if (waveform) {
-                waveform.style.background = 'linear-gradient(90deg, #075e54 0%, #128C7E 100%)';
-            }
-        });
-        
-        audio.addEventListener('error', (e) => {
-            console.error('Audio playback error:', e);
-            this.showNotification('Error playing voice message', 'error');
-            voiceMessageElement.classList.remove('playing');
-            playButton.textContent = '▶️';
-        });
-        
-        audio.play().catch(e => {
-            console.error('Error playing voice message:', e);
-            this.showNotification('Error playing voice message: ' + e.message, 'error');
-            voiceMessageElement.classList.remove('playing');
-            playButton.textContent = '▶️';
-        });
-    }
-
     handleTyping() {
         if (!this.selectedReceiver) return;
         
@@ -1675,7 +1249,7 @@ class ChatApp {
         } else {
             welcomeMessage.innerHTML = `
                 <div class="welcome-icon">💬</div>
-                <p>Welcome to Mugisha!</p>
+                <p>Welcome to WhatsApp Clone!</p>
                 <p>Select a user to start a private conversation</p>
             `;
         }
@@ -1762,7 +1336,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Mugisha</h1>
+                <h1>WhatsApp Clone</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -1782,8 +1356,6 @@ class ChatApp {
     logout() {
         if (this.socket) this.socket.disconnect();
         
-        if (this.isRecording) this.cancelVoiceRecording();
-        
         if (this.retryTimer) {
             clearInterval(this.retryTimer);
             this.retryTimer = null;
@@ -1791,8 +1363,6 @@ class ChatApp {
         
         this.pendingMessages.forEach(pending => clearTimeout(pending.timeout));
         this.pendingMessages.clear();
-        
-        this.cleanupPreviousRecording();
         
         this.currentUser = null;
         this.selectedReceiver = null;
@@ -1808,7 +1378,7 @@ class ChatApp {
         const loginScreen = document.getElementById('login-screen');
         loginScreen.innerHTML = `
             <div class="login-container">
-                <h1>Mugisha</h1>
+                <h1>WhatsApp Clone</h1>
                 <div class="login-form">
                     <input type="text" id="username-input" placeholder="Enter your username" maxlength="20">
                     <button id="login-btn">Join Chat</button>
@@ -1841,111 +1411,16 @@ class ChatApp {
             minute: '2-digit'
         });
         
-        let messageContent = '';
-        
-        if (message.message_type === 'image') {
-            messageContent = `
-                <div class="message-content">
-                    <div class="image-message">
-                        ${message.file_url ? 
-                            `<img src="${message.file_url}" alt="Shared image" onclick="this.classList.toggle('expanded')">` :
-                            `<div class="file-placeholder">📷 Image (uploading...)</div>`
-                        }
-                        ${message.message ? `<div class="image-caption">${this.escapeHtml(message.message)}</div>` : ''}
-                    </div>
-                    <div class="message-time">${time}</div>
-                    ${message.sender === this.currentUser ? '<div class="message-status"></div>' : ''}
-                </div>
-            `;
-        } else if (message.message_type === 'voice') {
-            const duration = message.duration ? this.formatVoiceDuration(message.duration) : '0:00';
-            messageContent = `
-                <div class="message-content">
-                    <div class="voice-message ${message.sender === this.currentUser ? 'sent' : 'received'}" 
-                         data-audio-url="${message.file_url}">
-                        <button class="play-voice-btn">
-                            ▶️
-                        </button>
-                        <div class="voice-waveform">
-                            <div class="voice-wave"></div>
-                            <div class="voice-duration">${duration}</div>
-                        </div>
-                    </div>
-                    <div class="message-time">${time}</div>
-                    ${message.sender === this.currentUser ? '<div class="message-status"></div>' : ''}
-                </div>
-            `;
-        } else {
-            messageContent = `
-                <div class="message-content">
-                    <div class="message-text">${this.escapeHtml(message.message)}</div>
-                    <div class="message-time">${time}</div>
-                    ${message.sender === this.currentUser ? '<div class="message-status"></div>' : ''}
-                </div>
-            `;
-        }
+        const messageContent = `
+            <div class="message-content">
+                <div class="message-text">${this.escapeHtml(message.message)}</div>
+                <div class="message-time">${time}</div>
+                ${message.sender === this.currentUser ? '<div class="message-status"></div>' : ''}
+            </div>
+        `;
         
         messageElement.innerHTML = messageContent;
         return messageElement;
-    }
-
-    async handleImageUpload(file) {
-        if (!file || !this.selectedReceiver) {
-            this.showNotification('Please select a user to send image', 'error');
-            return;
-        }
-
-        if (!file.type.startsWith('image/')) {
-            this.showNotification('Please select a valid image file', 'error');
-            return;
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-            this.showNotification('Image size must be less than 10MB', 'error');
-            return;
-        }
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('file_type', 'image');
-
-            const response = await fetch('/upload_file', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                const messageId = this.generateMessageId();
-                const timestamp = new Date().toISOString();
-                
-                const messageData = {
-                    id: messageId,
-                    sender: this.currentUser,
-                    receiver: this.selectedReceiver,
-                    message: '',
-                    message_type: 'image',
-                    file_url: result.file_url,
-                    file_name: result.file_name,
-                    file_size: result.file_size,
-                    timestamp: timestamp,
-                    status: 'sent'
-                };
-
-                this.displayMessage(messageData);
-                this.updateMessageStatusDisplay(messageId, 'sent');
-                this.queueMessageForSending(messageData);
-                
-                this.showNotification('Image sent');
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            this.showNotification('Error uploading image', 'error');
-        }
     }
 }
 

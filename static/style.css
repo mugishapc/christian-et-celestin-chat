@@ -1305,51 +1305,9 @@ html, body {
         padding: 2rem;
     }
     
-    /* Media buttons mobile - BEAUTIFUL */
-    .media-buttons {
-        gap: 0.5rem !important;
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
+   
     
-    .image-upload-btn, .voice-record-btn {
-        width: 44px !important;
-        height: 44px !important;
-        font-size: 1.3rem !important;
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        background: white !important;
-        border: 1px solid #ddd !important;
-    }
     
-    /* Voice recording interface mobile */
-    .voice-recording-interface {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1.25rem !important;
-        background: white !important;
-        border: 2px solid #e74c3c !important;
-        margin: 0.75rem 0;
-        min-height: 90px !important;
-    }
-    
-    .recording-controls {
-        width: 100%;
-        justify-content: space-between;
-        display: flex;
-        gap: 0.75rem;
-    }
-    
-    .cancel-voice-btn, .send-voice-btn {
-        flex: 1;
-        text-align: center;
-        padding: 0.85rem !important;
-        font-size: 1rem !important;
-        min-height: 50px !important;
-        border-radius: 20px !important;
-    }
     
     /* Mobile chat active state */
     body.mobile-chat-active {
